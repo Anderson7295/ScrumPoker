@@ -11,8 +11,8 @@ const HOST = process.env.HOST || '0.0.0.0';
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
 const ROLES = ['FrontEnd', 'BackEnd', 'FullStack', 'QA', 'Observador'];
-const DEFAULT_SP_DECK = ['0', '0.5', '1', '2', '3', '5', '8', '13', '21', '?'];
-const DEFAULT_HOURS_DECK = ['1', '2', '4', '6', '8', '12', '16', '24', '32', '40', '?'];
+const DEFAULT_SP_DECK = ['1', '2', '3', '5'];
+const DEFAULT_HOURS_DECK = Array.from({ length: 40 }, (_, i) => String(i + 1));
 
 /** rooms: id -> { id, story, revealed, spDeck, hoursDeck, members: Map<memberId, member>, clients: Set<res> } */
 const rooms = new Map();
@@ -36,7 +36,8 @@ function getRoom(id) {
       hoursDeck: [...DEFAULT_HOURS_DECK],
       members: new Map(),
       clients: new Set(),
-      emptySince: null,
+      emptySince: Date.now(),
+      lastPoll: 0,
     });
   }
   return rooms.get(id);
@@ -80,7 +81,7 @@ function publicState(room) {
     id: m.id,
     name: m.name,
     role: m.role,
-    online: m.connections > 0,
+    online: isOnline(m),
     votedSp: m.sp !== null,
     votedHours: m.hours !== null,
     sp: room.revealed ? m.sp : null,
@@ -97,12 +98,22 @@ function publicState(room) {
   };
 }
 
+// Presença: conexão SSE aberta ou consulta recente pelo modo polling (fallback quando um proxy segura o SSE)
+const POLL_ONLINE_MS = 8000;
+function isOnline(m) {
+  return m.connections > 0 || Date.now() - (m.lastSeen || 0) < POLL_ONLINE_MS;
+}
+
+function stateFor(room, memberId, base = publicState(room)) {
+  const m = room.members.get(memberId);
+  const mine = m ? { sp: m.sp, hours: m.hours } : { sp: null, hours: null };
+  return { ...base, mine };
+}
+
 function broadcast(room) {
   const base = publicState(room);
   for (const client of room.clients) {
-    const m = room.members.get(client.memberId);
-    const mine = m ? { sp: m.sp, hours: m.hours } : { sp: null, hours: null };
-    client.res.write(`data: ${JSON.stringify({ ...base, mine })}\n\n`);
+    client.res.write(`data: ${JSON.stringify(stateFor(room, client.memberId, base))}\n\n`);
   }
 }
 
@@ -113,7 +124,7 @@ function sanitizeDeck(input) {
     const v = String(raw).trim().slice(0, 6);
     if (v && !deck.includes(v)) deck.push(v);
   }
-  return deck.slice(0, 30);
+  return deck.slice(0, 60);
 }
 
 function sendJson(res, status, obj) {
@@ -228,11 +239,13 @@ const server = http.createServer(async (req, res) => {
       const member = room.members.get(url.searchParams.get('memberId'));
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
+        'Cache-Control': 'no-cache, no-transform',
         Connection: 'keep-alive',
         'X-Accel-Buffering': 'no',
       });
-      res.write('retry: 2000\n\n');
+      res.flushHeaders();
+      // Comentário de 2 KB para proxies que só repassam a resposta depois de juntar alguns bytes
+      res.write(`:${' '.repeat(2048)}\nretry: 2000\n\n`);
       const client = { res, memberId: member ? member.id : null };
       room.clients.add(client);
       room.emptySince = null;
@@ -247,6 +260,20 @@ const server = http.createServer(async (req, res) => {
         broadcast(room);
       });
       return;
+    }
+
+    // Estado atual (polling): GET /api/rooms/:id/state?memberId=...
+    if (req.method === 'GET' && parts[0] === 'api' && parts[1] === 'rooms' && parts[3] === 'state') {
+      const room = getRoom(parts[2]);
+      const member = room.members.get(url.searchParams.get('memberId'));
+      if (member) {
+        const wasOnline = isOnline(member);
+        member.lastSeen = Date.now();
+        if (!wasOnline) broadcast(room);
+      }
+      room.lastPoll = Date.now();
+      res.setHeader('Cache-Control', 'no-store');
+      return sendJson(res, 200, stateFor(room, member ? member.id : null));
     }
 
     // Ações: POST /api/rooms/:id/action
@@ -277,7 +304,9 @@ const server = http.createServer(async (req, res) => {
 // Remove salas vazias há mais de 12 horas
 setInterval(() => {
   const limit = Date.now() - 12 * 3600 * 1000;
-  for (const [id, room] of rooms) if (room.emptySince && room.emptySince < limit) rooms.delete(id);
+  for (const [id, room] of rooms) {
+    if (room.emptySince && room.emptySince < limit && room.lastPoll < limit) rooms.delete(id);
+  }
 }, 3600 * 1000).unref();
 
 function lanAddresses() {

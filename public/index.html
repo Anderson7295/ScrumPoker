@@ -244,6 +244,7 @@ async function act(action, extra = {}) {
     else toast(data.error || 'Erro');
     throw new Error(data.error);
   }
+  es?.refresh();
   return data;
 }
 
@@ -298,33 +299,54 @@ $('joinBtn').onclick = async () => {
 };
 $('name').onkeydown = (e) => { if (e.key === 'Enter') $('joinBtn').click(); };
 
+// Tempo real via SSE; se nada chegar em 5 s (proxy segurando o stream), passa a consultar a cada 2 s.
+// Retorna { close, refresh } para ser usado como `es`.
+function subscribe(onState) {
+  const qs = memberId ? `?memberId=${encodeURIComponent(memberId)}` : '';
+  let closed = false, gotEvent = false, timer = null;
+  const src = new EventSource(`/api/rooms/${roomId}/events${qs}`);
+  src.onmessage = (e) => { gotEvent = true; onState(JSON.parse(e.data)); };
+  const poll = async () => {
+    if (closed) return;
+    clearTimeout(timer);
+    try {
+      const r = await fetch(`/api/rooms/${roomId}/state${qs}`, { cache: 'no-store' });
+      if (r.ok && !closed) onState(await r.json());
+    } catch {}
+    if (!closed) timer = setTimeout(poll, 2000);
+  };
+  const fallback = setTimeout(() => { if (!gotEvent && !closed) { src.close(); poll(); } }, 5000);
+  return {
+    close() { closed = true; src.close(); clearTimeout(fallback); clearTimeout(timer); },
+    refresh() { if (!gotEvent && timer) poll(); },
+  };
+}
+
 // ---------- Sala ----------
 function connect() {
   show('room');
   if (es) es.close();
-  es = new EventSource(`/api/rooms/${roomId}/events?memberId=${encodeURIComponent(memberId)}`);
-  es.onmessage = (e) => {
-    state = JSON.parse(e.data);
+  es = subscribe((data) => {
+    state = data;
     myVote.sp = state.mine.sp; myVote.hours = state.mine.hours;
     if (!state.members.some((m) => m.id === memberId)) {
       // servidor reiniciado ou membro removido: pede para entrar de novo
       forget(); renderJoin(); return;
     }
     render();
-  };
+  });
 }
 
 function connectBoard() {
   show('board');
   document.title = 'Painel ' + roomId + ' - Scrum Poker';
-  const src = new EventSource(`/api/rooms/${roomId}/events`);
-  src.onmessage = (e) => {
-    state = JSON.parse(e.data);
+  es = subscribe((data) => {
+    state = data;
     $('boardStory').textContent = state.story ? 'Demanda: ' + state.story : '';
     $('boardBody').innerHTML = boardHTML(state, null, true);
     $('boardResultsPanel').classList.toggle('hidden', !state.revealed);
     if (state.revealed) $('boardResults').innerHTML = resultsHTML(state.results);
-  };
+  });
 }
 
 const GROUP_LABEL = { FrontEnd: 'Dev FrontEnd', FullStack: 'Dev FullStack', BackEnd: 'Dev BackEnd', QA: 'QA', Observador: 'Observador' };
