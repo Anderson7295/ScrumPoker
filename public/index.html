@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scrum Poker</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --panel: #fff; --text: #1d2330; --muted: #667085; --line: #e3e6eb;
+    --primary: #3b5bdb; --primary-ink: #fff; --accent: #e8edff;
+    --fe: #1c7ed6; --be: #2f9e44; --qa: #e8590c; --fs: #7048e8; --obs: #868e96;
+    --ok: #2f9e44; --radius: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151c; --panel: #1b1f29; --text: #e6e8ee; --muted: #9aa3b2; --line: #2b3140;
+      --primary: #5c7cfa; --accent: #26304d;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+  h1 { font-size: 22px; margin: 0; }
+  h2 { font-size: 16px; margin: 0 0 12px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+  .muted { color: var(--muted); }
+  .hidden { display: none !important; }
+  button, .btn { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--text); border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+  button:hover { border-color: var(--primary); }
+  button.primary { background: var(--primary); color: var(--primary-ink); border-color: var(--primary); font-weight: 600; }
+  button.link { border: none; background: none; color: var(--primary); padding: 4px 6px; }
+  button:disabled { opacity: .5; cursor: default; }
+  input, select { font: inherit; padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); width: 100%; }
+  label { display: block; font-weight: 600; margin: 12px 0 6px; }
+  .center { max-width: 420px; margin: 8vh auto 0; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .roles { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+  .role-opt { border: 2px solid var(--line); border-radius: 10px; padding: 10px; text-align: center; cursor: pointer; font-weight: 600; }
+  .role-opt.sel { border-color: var(--primary); background: var(--accent); }
+  .layout { display: grid; grid-template-columns: 1fr 300px; gap: 16px; }
+  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+  .stack > * + * { margin-top: 16px; }
+  .deck-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .cards { display: flex; flex-wrap: wrap; gap: 8px; }
+  .card { width: 56px; height: 76px; border-radius: 10px; border: 2px solid var(--line); background: var(--panel); font-size: 20px; font-weight: 700; display: grid; place-items: center; cursor: pointer; transition: transform .1s; }
+  .card:hover { transform: translateY(-3px); border-color: var(--primary); }
+  .card.sel { background: var(--primary); color: var(--primary-ink); border-color: var(--primary); transform: translateY(-5px); }
+  .card:disabled { transform: none; cursor: default; }
+  .card.sel:disabled { opacity: 1; }
+  .deck-edit { margin-top: 10px; }
+  .badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; color: #fff; }
+  .r-FrontEnd { background: var(--fe); } .r-BackEnd { background: var(--be); } .r-QA { background: var(--qa); }
+  .r-FullStack { background: var(--fs); } .r-Observador { background: var(--obs); }
+  .members { list-style: none; margin: 0; padding: 0; }
+  .members li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+  .members li:last-child { border-bottom: none; }
+  .who { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .who b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .who.offline b { opacity: .5; }
+  .votes { display: flex; gap: 6px; flex-shrink: 0; }
+  .vchip { min-width: 46px; text-align: center; border-radius: 8px; padding: 3px 6px; font-size: 13px; border: 1px dashed var(--line); color: var(--muted); }
+  .vchip.done { border: 1px solid var(--ok); color: var(--ok); font-weight: 700; }
+  .vchip.shown { border: 1px solid var(--primary); color: var(--text); font-weight: 700; }
+  .vchip small { display: block; font-size: 10px; font-weight: 400; color: var(--muted); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ok); flex-shrink: 0; box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 20%, transparent); }
+  .dot.off { background: var(--obs); box-shadow: none; }
+  .summary { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+  .pill { font-size: 12px; border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; color: var(--muted); }
+  .pill b { color: var(--text); }
+  .group { margin-top: 12px; }
+  .group-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+  .group-head .cnt { font-size: 12px; color: var(--muted); }
+  .person { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+  .group .person:last-child { border-bottom: none; }
+  .person .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+  .person.off .nm { opacity: .5; }
+  .status { font-size: 11px; font-weight: 700; border-radius: 6px; padding: 2px 7px; white-space: nowrap; }
+  .st-ok { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+  .st-part { background: color-mix(in srgb, var(--qa) 15%, transparent); color: var(--qa); }
+  .st-wait { background: color-mix(in srgb, var(--obs) 15%, transparent); color: var(--muted); }
+  .board-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+  .board-grid .group { margin: 0; border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; background: var(--panel); }
+  .board-grid .person { padding: 10px 0; font-size: 16px; }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .results { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  @media (max-width: 560px) { .results { grid-template-columns: 1fr; } }
+  .res { border-radius: 10px; padding: 14px; border: 1px solid var(--line); border-top: 5px solid; }
+  .res.FrontEnd { border-top-color: var(--fe); } .res.BackEnd { border-top-color: var(--be); } .res.QA { border-top-color: var(--qa); }
+  .res h3 { margin: 0 0 8px; font-size: 15px; }
+  .res .num { font-size: 28px; font-weight: 800; }
+  .res .lbl { font-size: 12px; color: var(--muted); }
+  .res .pair { display: flex; gap: 18px; }
+  .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #222; color: #fff; padding: 9px 16px; border-radius: 8px; font-size: 14px; }
+  .code { font-family: ui-monospace, monospace; font-weight: 700; letter-spacing: 1px; }
+  .story { font-size: 16px; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Tela inicial -->
+  <section id="home" class="hidden">
+    <div class="center panel">
+      <h1>🃏 Scrum Poker</h1>
+      <p class="muted">Estime Story Points e Horas por área: FrontEnd, BackEnd e QA.</p>
+      <button class="primary" id="createRoom" style="width:100%">Criar nova sala</button>
+      <label for="roomCode">Ou entre com o código da sala</label>
+      <div class="row">
+        <input id="roomCode" placeholder="Ex.: K7QW2M" maxlength="12">
+        <button id="goRoom">Entrar</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Entrar na sala -->
+  <section id="join" class="hidden">
+    <div class="center panel">
+      <h1>Entrar na sala <span class="code" data-room-code></span></h1>
+      <label for="name">Seu nome</label>
+      <input id="name" maxlength="40" placeholder="Como o time te conhece">
+      <label>Seu cargo</label>
+      <div class="roles" id="roles"></div>
+      <p class="muted" style="font-size:13px">Votos de FullStack entram nas médias de FrontEnd e BackEnd. Observador não vota.</p>
+      <p id="joinError" class="hidden" style="color:#e03131"></p>
+      <button class="primary" id="joinBtn" style="width:100%;margin-top:8px">Entrar</button>
+    </div>
+  </section>
+
+  <!-- Sala -->
+  <section id="room" class="hidden">
+    <header>
+      <h1>🃏 Sala <span class="code" data-room-code></span></h1>
+      <div class="row">
+        <button id="copyLink">Copiar link da sala</button>
+        <button id="changeRole" class="link">Trocar nome/cargo</button>
+      </div>
+    </header>
+
+    <div class="layout">
+      <div class="stack">
+        <div class="panel">
+          <label for="story" style="margin-top:0">Demanda em votação</label>
+          <input id="story" class="story" maxlength="200" placeholder="Ex.: JIRA-123 Tela de login">
+        </div>
+
+        <div class="panel" id="votePanel">
+          <div class="deck-head">
+            <h2>Story Points</h2>
+            <button class="link" data-edit-deck="sp">Editar valores</button>
+          </div>
+          <div class="cards" id="spCards"></div>
+          <div class="deck-edit hidden" id="spEdit">
+            <div class="row">
+              <input id="spDeckInput" placeholder="Valores separados por vírgula">
+              <button data-save-deck="sp">Salvar</button>
+            </div>
+            <p class="muted" style="font-size:13px;margin:6px 0 0">A mudança vale para todos da sala.</p>
+          </div>
+
+          <div class="deck-head" style="margin-top:22px">
+            <h2>Horas</h2>
+            <button class="link" data-edit-deck="hours">Editar valores</button>
+          </div>
+          <div class="cards" id="hoursCards"></div>
+          <div class="deck-edit hidden" id="hoursEdit">
+            <div class="row">
+              <input id="hoursDeckInput" placeholder="Valores separados por vírgula">
+              <button data-save-deck="hours">Salvar</button>
+            </div>
+            <p class="muted" style="font-size:13px;margin:6px 0 0">A mudança vale para todos da sala.</p>
+          </div>
+          <p class="muted hidden" id="observerNote" style="margin:12px 0 0">Você está como Observador e não vota.</p>
+        </div>
+
+        <div class="panel">
+          <div class="deck-head">
+            <h2 style="margin:0">Resultado</h2>
+            <div class="actions">
+              <button class="primary" id="revealBtn">Revelar</button>
+              <button id="resetBtn">Nova rodada</button>
+            </div>
+          </div>
+          <p class="muted" id="hiddenNote" style="margin:12px 0 0">Os votos ficam ocultos até alguém clicar em Revelar.</p>
+          <div class="results hidden" id="results" style="margin-top:14px"></div>
+          <p class="muted" style="font-size:13px;margin:10px 0 0">Média de cada área. Votos de Dev FullStack entram em FrontEnd e BackEnd. Valores como "?" não entram na média.</p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="deck-head">
+          <h2 style="margin:0">Quem está na sala</h2>
+          <a class="link" id="boardLink" target="_blank" style="color:var(--primary);font-size:13px">Abrir painel ↗</a>
+        </div>
+        <div id="members" style="margin-top:10px"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Painel somente leitura (para projetar / compartilhar tela) -->
+  <section id="board" class="hidden">
+    <header>
+      <h1>🃏 Painel da sala <span class="code" data-room-code></span></h1>
+      <span class="muted" id="boardStory" style="font-weight:600"></span>
+    </header>
+    <div id="boardBody"></div>
+    <div class="panel hidden" id="boardResultsPanel" style="margin-top:16px">
+      <h2>Resultado</h2>
+      <div class="results" id="boardResults"></div>
+    </div>
+  </section>
+</div>
+<div class="toast hidden" id="toast"></div>
+
+<script>
+const ROLES = ['FrontEnd', 'BackEnd', 'FullStack', 'QA', 'Observador'];
+const $ = (id) => document.getElementById(id);
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
+};
+
+let roomId = null, memberId = null, state = null, es = null, selectedRole = null;
+
+function show(id) {
+  for (const s of ['home', 'join', 'room', 'board']) $(s).classList.toggle('hidden', s !== id);
+}
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.remove('hidden');
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.add('hidden'), 2200);
+}
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function fmt(n) { return n === null || n === undefined ? '–' : String(n).replace('.', ','); }
+
+async function act(action, extra = {}) {
+  const r = await fetch(`/api/rooms/${roomId}/action`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, memberId, ...extra }),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    if (/Entre na sala/.test(data.error || '')) { forget(); renderJoin(); }
+    else toast(data.error || 'Erro');
+    throw new Error(data.error);
+  }
+  return data;
+}
+
+function forget() { store.del('sp-member:' + roomId); memberId = null; if (es) { es.close(); es = null; } }
+
+// ---------- Rotas ----------
+function route() {
+  const pb = location.pathname.match(/^\/painel\/([A-Za-z0-9]+)/);
+  if (pb) { roomId = pb[1].toUpperCase(); document.querySelectorAll('[data-room-code]').forEach((e) => (e.textContent = roomId)); connectBoard(); return; }
+  const m = location.pathname.match(/^\/sala\/([A-Za-z0-9]+)/);
+  if (!m) { show('home'); return; }
+  roomId = m[1].toUpperCase();
+  document.querySelectorAll('[data-room-code]').forEach((e) => (e.textContent = roomId));
+  memberId = store.get('sp-member:' + roomId);
+  if (memberId) connect(); else renderJoin();
+}
+
+$('createRoom').onclick = async () => {
+  const r = await fetch('/api/new-room').then((r) => r.json());
+  location.href = '/sala/' + r.roomId;
+};
+$('goRoom').onclick = () => {
+  const c = $('roomCode').value.trim().replace(/.*\/sala\//, '');
+  if (c) location.href = '/sala/' + encodeURIComponent(c.toUpperCase());
+};
+$('roomCode').onkeydown = (e) => { if (e.key === 'Enter') $('goRoom').click(); };
+
+// ---------- Entrar ----------
+function renderJoin(prefill) {
+  show('join');
+  $('name').value = prefill?.name || store.get('sp-name') || '';
+  selectedRole = prefill?.role || store.get('sp-role') || null;
+  $('roles').innerHTML = ROLES.map((r) =>
+    `<div class="role-opt ${r === selectedRole ? 'sel' : ''}" data-role="${r}">${r === 'FrontEnd' || r === 'BackEnd' || r === 'FullStack' ? 'Dev ' : ''}${r}</div>`).join('');
+  $('roles').querySelectorAll('.role-opt').forEach((el) => el.onclick = () => {
+    selectedRole = el.dataset.role; renderRoles();
+  });
+  $('name').focus();
+}
+function renderRoles() {
+  $('roles').querySelectorAll('.role-opt').forEach((el) => el.classList.toggle('sel', el.dataset.role === selectedRole));
+}
+$('joinBtn').onclick = async () => {
+  const name = $('name').value.trim();
+  const err = $('joinError');
+  if (!name || !selectedRole) { err.textContent = 'Informe seu nome e escolha um cargo.'; err.classList.remove('hidden'); return; }
+  err.classList.add('hidden');
+  const data = await act('join', { name, role: selectedRole });
+  memberId = data.memberId;
+  store.set('sp-member:' + roomId, memberId); store.set('sp-name', name); store.set('sp-role', selectedRole);
+  connect();
+};
+$('name').onkeydown = (e) => { if (e.key === 'Enter') $('joinBtn').click(); };
+
+// ---------- Sala ----------
+function connect() {
+  show('room');
+  if (es) es.close();
+  es = new EventSource(`/api/rooms/${roomId}/events?memberId=${encodeURIComponent(memberId)}`);
+  es.onmessage = (e) => {
+    state = JSON.parse(e.data);
+    myVote.sp = state.mine.sp; myVote.hours = state.mine.hours;
+    if (!state.members.some((m) => m.id === memberId)) {
+      // servidor reiniciado ou membro removido: pede para entrar de novo
+      forget(); renderJoin(); return;
+    }
+    render();
+  };
+}
+
+function connectBoard() {
+  show('board');
+  document.title = 'Painel ' + roomId + ' - Scrum Poker';
+  const src = new EventSource(`/api/rooms/${roomId}/events`);
+  src.onmessage = (e) => {
+    state = JSON.parse(e.data);
+    $('boardStory').textContent = state.story ? 'Demanda: ' + state.story : '';
+    $('boardBody').innerHTML = boardHTML(state, null, true);
+    $('boardResultsPanel').classList.toggle('hidden', !state.revealed);
+    if (state.revealed) $('boardResults').innerHTML = resultsHTML(state.results);
+  };
+}
+
+const GROUP_LABEL = { FrontEnd: 'Dev FrontEnd', FullStack: 'Dev FullStack', BackEnd: 'Dev BackEnd', QA: 'QA', Observador: 'Observador' };
+const GROUP_ORDER = ['FrontEnd', 'FullStack', 'BackEnd', 'QA', 'Observador'];
+
+// Visão de quem está na sala, agrupada por cargo, com presença e status de voto
+function boardHTML(st, selfId, wide) {
+  const present = st.members.filter((m) => m.online);
+  const voters = st.members.filter((m) => m.role !== 'Observador');
+  const votedAll = voters.filter((m) => m.votedSp && m.votedHours).length;
+  const summary = `<div class="summary">
+    <span class="pill"><b>${present.length}</b> na sala</span>
+    <span class="pill"><b>${votedAll}/${voters.length}</b> votaram SP e Horas</span>
+    ${st.revealed ? '<span class="pill"><b>Votos revelados</b></span>' : ''}
+  </div>`;
+  const groups = GROUP_ORDER.map((role) => {
+    const list = st.members.filter((m) => m.role === role)
+      .sort((a, b) => (b.online - a.online) || a.name.localeCompare(b.name));
+    if (!list.length) return '';
+    const isObs = role === 'Observador';
+    const done = list.filter((m) => m.votedSp && m.votedHours).length;
+    const rows = list.map((m) => {
+      let status = '', chips = '';
+      if (!isObs) {
+        if (st.revealed) {
+          chips = `<span class="vchip shown">${esc(m.sp ?? '–')}<small>SP</small></span><span class="vchip shown">${esc(m.hours ?? '–')}<small>Horas</small></span>`;
+        } else {
+          const both = m.votedSp && m.votedHours, any = m.votedSp || m.votedHours;
+          status = both ? '<span class="status st-ok">Votou ✓</span>'
+            : any ? `<span class="status st-part">Falta ${m.votedSp ? 'Horas' : 'SP'}</span>`
+            : '<span class="status st-wait">Aguardando</span>';
+        }
+      }
+      return `<div class="person ${m.online ? '' : 'off'}" title="${m.online ? 'Na sala' : 'Saiu da sala'}">
+        <span class="dot ${m.online ? '' : 'off'}"></span>
+        <span class="nm">${esc(m.name)}${m.id === selfId ? ' (você)' : ''}${m.online ? '' : ' <small class="muted">(saiu)</small>'}</span>
+        ${status}${chips ? `<span class="votes">${chips}</span>` : ''}</div>`;
+    }).join('');
+    return `<div class="group"><div class="group-head"><span class="badge r-${role}">${GROUP_LABEL[role]}</span>
+      <span class="cnt">${isObs ? list.length + ' pessoa' + (list.length === 1 ? '' : 's') : done + '/' + list.length + ' votaram'}</span></div>${rows}</div>`;
+  }).join('');
+  if (!st.members.length) return summary + '<p class="muted">Ninguém entrou na sala ainda.</p>';
+  return summary + (wide ? `<div class="board-grid">${groups}</div>` : groups);
+}
+
+function resultsHTML(results) {
+  return Object.entries(results).map(([g, r]) => `
+      <div class="res ${g}"><h3>${g}</h3>
+        <div class="pair">
+          <div><div class="num">${fmt(r.sp)}</div><div class="lbl">Story Points</div></div>
+          <div><div class="num">${fmt(r.hours)}</div><div class="lbl">Horas</div></div>
+        </div>
+        <div class="lbl" style="margin-top:6px">${r.voters} votante${r.voters === 1 ? '' : 's'}</div>
+      </div>`).join('');
+}
+
+function me() { return state?.members.find((m) => m.id === memberId); }
+
+function render() {
+  const self = me();
+  const isObserver = self.role === 'Observador';
+
+  if (document.activeElement !== $('story')) $('story').value = state.story;
+
+  // Baralhos
+  renderDeck('sp', state.spDeck, isObserver);
+  renderDeck('hours', state.hoursDeck, isObserver);
+  $('observerNote').classList.toggle('hidden', !isObserver);
+
+  // Quem está na sala
+  $('members').innerHTML = boardHTML(state, memberId, false);
+  $('boardLink').href = '/painel/' + roomId;
+
+  // Resultado
+  $('revealBtn').disabled = state.revealed;
+  $('hiddenNote').classList.toggle('hidden', state.revealed);
+  $('results').classList.toggle('hidden', !state.revealed);
+  if (state.revealed) {
+    $('results').innerHTML = resultsHTML(state.results);
+  }
+}
+
+const myVote = { sp: null, hours: null };
+
+function renderDeck(kind, deck, isObserver) {
+  const el = $(kind === 'sp' ? 'spCards' : 'hoursCards');
+  el.innerHTML = deck.map((v) =>
+    `<button class="card ${myVote[kind] === v ? 'sel' : ''}" data-kind="${kind}" data-v="${esc(v)}" ${isObserver || state.revealed ? 'disabled' : ''}>${esc(v)}</button>`).join('');
+  el.querySelectorAll('.card').forEach((b) => b.onclick = async () => {
+    const v = b.dataset.v;
+    const value = myVote[kind] === v ? null : v; // clicar de novo desmarca
+    myVote[kind] = value;
+    render();
+    await act('vote', { kind, value }).catch(() => {});
+  });
+  const input = $(kind === 'sp' ? 'spDeckInput' : 'hoursDeckInput');
+  if (document.activeElement !== input) input.value = deck.join(', ');
+}
+
+document.querySelectorAll('[data-edit-deck]').forEach((b) => b.onclick = () => {
+  const box = $(b.dataset.editDeck === 'sp' ? 'spEdit' : 'hoursEdit');
+  box.classList.toggle('hidden');
+  b.textContent = box.classList.contains('hidden') ? 'Editar valores' : 'Fechar';
+});
+document.querySelectorAll('[data-save-deck]').forEach((b) => b.onclick = async () => {
+  const kind = b.dataset.saveDeck;
+  const input = $(kind === 'sp' ? 'spDeckInput' : 'hoursDeckInput');
+  await act('deck', { kind, deck: input.value });
+  input.blur();
+  toast('Valores atualizados para toda a sala');
+});
+document.querySelectorAll('#spDeckInput, #hoursDeckInput').forEach((i) => i.onkeydown = (e) => {
+  if (e.key === 'Enter') document.querySelector(`[data-save-deck="${i.id === 'spDeckInput' ? 'sp' : 'hours'}"]`).click();
+});
+
+let storyTimer;
+$('story').oninput = () => { clearTimeout(storyTimer); storyTimer = setTimeout(() => act('story', { story: $('story').value }).catch(() => {}), 400); };
+$('revealBtn').onclick = () => act('reveal').catch(() => {});
+$('resetBtn').onclick = () => act('reset', { story: '' }).catch(() => {});
+$('copyLink').onclick = async () => {
+  const link = location.origin + '/sala/' + roomId;
+  try { await navigator.clipboard.writeText(link); toast('Link copiado: ' + link); }
+  catch { prompt('Copie o link da sala:', link); }
+};
+$('changeRole').onclick = () => { const s = me(); if (es) { es.close(); es = null; } renderJoin(s); };
+
+route();
+</script>
+</body>
+</html>

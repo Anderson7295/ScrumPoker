@@ -1,0 +1,13 @@
+# Configuração do Render (Blueprint): https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: scrum-poker
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
