@@ -152,7 +152,8 @@
   #hoursLinkView { display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 100%; }
   #hoursLinkView.hidden { display: none; }
   #hoursLinkA, #boardHoursA { display: inline-block; background: var(--primary); color: var(--primary-ink); border: 1px solid var(--primary); border-radius: 8px; padding: 6px 14px; font-weight: 600; font-size: 14px; text-decoration: none; white-space: nowrap; }
-  #hoursLinkA:hover, #boardHoursA:hover, #hoursLinkA:focus-visible, #boardHoursA:focus-visible { filter: brightness(1.1); outline: 2px solid var(--accent); outline-offset: 1px; }
+  #hoursLinkA:not(.disabled):hover, #boardHoursA:not(.disabled):hover, #hoursLinkA:focus-visible, #boardHoursA:focus-visible { filter: brightness(1.1); outline: 2px solid var(--accent); outline-offset: 1px; }
+  #hoursLinkA.disabled, #boardHoursA.disabled { background: var(--line); border-color: var(--line); color: var(--muted); opacity: .7; cursor: not-allowed; }
   #hoursLinkEdit { padding: 2px 4px; font-size: 13px; }
   #hoursLinkInput { width: 320px; max-width: 100%; padding: 5px 9px; font-size: 13px; }
   #hoursLinkError { color: #e03131; font-size: 12px; }
@@ -224,9 +225,9 @@
         <!-- Link da demanda para lançamento de horas: campo quando vazio, link clicável quando preenchido -->
         <div class="hours-row">
           <label for="hoursLinkInput" id="hoursLinkLabel">Link para lançamento de horas:</label>
-          <span id="hoursLinkView" class="hidden">
-            <a id="hoursLinkA" href="#" target="_blank" rel="noopener noreferrer"></a>
-            <button class="link" id="hoursLinkEdit" title="Editar link" aria-label="Editar link">✏️</button>
+          <span id="hoursLinkView">
+            <a id="hoursLinkA" target="_blank" rel="noopener noreferrer"></a>
+            <button class="link hidden" id="hoursLinkEdit" title="Editar link" aria-label="Editar link">✏️</button>
           </span>
           <input id="hoursLinkInput" maxlength="500" placeholder="Cole o link da demanda (https://...)">
           <span id="hoursLinkError" class="hidden"></span>
@@ -326,7 +327,7 @@
       <h1 class="board-title">🃏 Painel da sala <span class="code" data-room-code></span><span data-room-name></span></h1>
       <span class="muted" id="boardStory" style="font-weight:600"></span>
     </header>
-    <p class="hours-row hidden" id="boardHours" style="margin:-8px 0 14px">
+    <p class="hours-row" id="boardHours" style="margin:-8px 0 14px">
       <a id="boardHoursA" target="_blank" rel="noopener noreferrer"></a>
     </p>
     <div id="boardBody"></div>
@@ -520,10 +521,7 @@ function connectBoard() {
     state = data;
     $('boardStory').textContent = state.story ? 'Demanda: ' + state.story : '';
     showRoomName(state.name);
-    $('boardHours').classList.toggle('hidden', !state.hoursLink);
-    $('boardHoursA').textContent = HOURS_LINK_TEXT;
-    $('boardHoursA').title = state.hoursLink || '';
-    $('boardHoursA').href = state.hoursLink || '#';
+    setHoursButton($('boardHoursA'), state.hoursLink);
     $('boardBody').innerHTML = boardHTML(state, null, true);
     $('boardResultsPanel').classList.toggle('hidden', !state.revealed);
     if (state.revealed) $('boardResults').innerHTML = resultsHTML(state.results);
@@ -789,14 +787,20 @@ $('leaveRoom').onclick = async () => {
 // Texto mostrado no lugar da URL (a URL completa fica só na dica ao passar o mouse)
 const HOURS_LINK_TEXT = '🔗 Lançar horas';
 let editingHoursLink = false;
+// O botão aparece sempre; sem link fica cinza e inativo (sem href)
+function setHoursButton(a, link) {
+  a.textContent = HOURS_LINK_TEXT;
+  a.classList.toggle('disabled', !link);
+  a.setAttribute('aria-disabled', String(!link));
+  a.title = link || 'Ainda não foi definido o link da demanda para lançamento de horas.';
+  if (link) a.href = link; else a.removeAttribute('href');
+}
 function showHoursLink(link) {
   const editing = editingHoursLink || !link;
-  $('hoursLinkView').classList.toggle('hidden', editing);
+  setHoursButton($('hoursLinkA'), link);
+  $('hoursLinkEdit').classList.toggle('hidden', editing);
   $('hoursLinkInput').classList.toggle('hidden', !editing);
   $('hoursLinkLabel').classList.toggle('hidden', !editing);
-  $('hoursLinkA').textContent = HOURS_LINK_TEXT;
-  $('hoursLinkA').title = link || '';
-  $('hoursLinkA').href = link || '#';
   if (document.activeElement !== $('hoursLinkInput') && !editingHoursLink) $('hoursLinkInput').value = link || '';
 }
 async function saveHoursLink() {
