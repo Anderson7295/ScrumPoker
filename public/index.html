@@ -49,6 +49,9 @@
   .card:disabled { transform: none; cursor: default; }
   .card.sel:disabled { opacity: 1; }
   .deck-edit { margin-top: 10px; }
+  .fs-part { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 12px 0 20px; }
+  .fs-part h2 { margin-bottom: 6px; }
+  .fs-lbl { font-size: 12px; font-weight: 600; color: var(--muted); margin: 10px 0 6px; }
   .badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; color: #fff; }
   .r-FrontEnd { background: var(--fe); } .r-BackEnd { background: var(--be); } .r-QA { background: var(--qa); }
   .r-FullStack { background: var(--fs); } .r-Observador { background: var(--obs); }
@@ -121,7 +124,7 @@
       <input id="name" maxlength="40" placeholder="Como o time te conhece">
       <label>Seu cargo</label>
       <div class="roles" id="roles"></div>
-      <p class="muted" style="font-size:13px">Votos de FullStack entram nas médias de FrontEnd e BackEnd. Observador não vota.</p>
+      <p class="muted" style="font-size:13px">Dev FullStack vota Front e Back separados; cada parte entra na média da sua área. Observador não vota.</p>
       <p id="joinError" class="hidden" style="color:#e03131"></p>
       <button class="primary" id="joinBtn" style="width:100%;margin-top:8px">Entrar</button>
     </div>
@@ -145,8 +148,27 @@
         </div>
 
         <div class="panel" id="votePanel">
+          <!-- Dev FullStack: vota separado na parte Front e na parte Back -->
+          <div id="fsVote" class="hidden">
+            <p class="muted" style="font-size:13px;margin:0 0 4px">Vote só na parte que se aplica; parte em branco não entra na média.</p>
+            <div class="fs-part">
+              <h2>Parte Front</h2>
+              <div class="fs-lbl">Story Points</div>
+              <div class="cards" id="feSpCards"></div>
+              <div class="fs-lbl">Horas</div>
+              <div class="cards" id="feHoursCards"></div>
+            </div>
+            <div class="fs-part">
+              <h2>Parte Back</h2>
+              <div class="fs-lbl">Story Points</div>
+              <div class="cards" id="beSpCards"></div>
+              <div class="fs-lbl">Horas</div>
+              <div class="cards" id="beHoursCards"></div>
+            </div>
+          </div>
+
           <div class="deck-head">
-            <h2>Story Points</h2>
+            <h2 id="spTitle">Story Points</h2>
             <button class="link" data-edit-deck="sp">Editar valores</button>
           </div>
           <div class="cards" id="spCards"></div>
@@ -159,7 +181,7 @@
           </div>
 
           <div class="deck-head" style="margin-top:22px">
-            <h2>Horas</h2>
+            <h2 id="hoursTitle">Horas</h2>
             <button class="link" data-edit-deck="hours">Editar valores</button>
           </div>
           <div class="cards" id="hoursCards"></div>
@@ -183,7 +205,7 @@
           </div>
           <p class="muted" id="hiddenNote" style="margin:12px 0 0">Os votos ficam ocultos até alguém clicar em Revelar.</p>
           <div class="results hidden" id="results" style="margin-top:14px"></div>
-          <p class="muted" style="font-size:13px;margin:10px 0 0">Média de cada área. Votos de Dev FullStack entram em FrontEnd e BackEnd. Valores como "?" não entram na média.</p>
+          <p class="muted" style="font-size:13px;margin:10px 0 0">Média de cada área. Dev FullStack vota Front e Back separados: a parte Front entra em FrontEnd e a parte Back em BackEnd (parte em branco não conta). Valores como "?" não entram na média.</p>
         </div>
       </div>
 
@@ -343,7 +365,8 @@ function connect() {
   if (es) es.close();
   es = subscribe((data) => {
     state = data;
-    myVote.sp = state.mine.sp; myVote.hours = state.mine.hours;
+    const mine = state.mine;
+    Object.assign(myVote, { sp: mine.sp, hours: mine.hours, fe: { ...mine.fe }, be: { ...mine.be } });
     if (!state.members.some((m) => m.id === memberId)) {
       // servidor reiniciado (ou Render acordou): entra de novo sozinho com o nome e cargo salvos
       rejoin(); return;
@@ -367,11 +390,34 @@ function connectBoard() {
 const GROUP_LABEL = { FrontEnd: 'Dev FrontEnd', FullStack: 'Dev FullStack', BackEnd: 'Dev BackEnd', QA: 'QA', Observador: 'Observador' };
 const GROUP_ORDER = ['FrontEnd', 'FullStack', 'BackEnd', 'QA', 'Observador'];
 
+// Votou SP e Horas; o FullStack conta como votou se completou pelo menos uma das partes
+const partDone = (p) => p.votedSp && p.votedHours;
+const memberDone = (m) => (m.role === 'FullStack' ? partDone(m.fe) || partDone(m.be) : partDone(m));
+
+function statusHTML(m, revealed) {
+  if (m.role === 'FullStack') {
+    if (revealed) {
+      const val = (p) => `${esc(p.sp ?? '–')} SP/${esc(p.hours ?? '–')}h`;
+      return `<span class="vchip shown">F ${val(m.fe)} · B ${val(m.be)}</span>`;
+    }
+    const any = (p) => p.votedSp || p.votedHours;
+    if (!any(m.fe) && !any(m.be)) return '<span class="status st-wait">Aguardando</span>';
+    const mark = (p) => (partDone(p) ? '✓' : any(p) ? '…' : '–');
+    return `<span class="status ${memberDone(m) ? 'st-ok' : 'st-part'}">Front ${mark(m.fe)} · Back ${mark(m.be)}</span>`;
+  }
+  if (revealed) {
+    return `<span class="votes"><span class="vchip shown">${esc(m.sp ?? '–')}<small>SP</small></span><span class="vchip shown">${esc(m.hours ?? '–')}<small>Horas</small></span></span>`;
+  }
+  if (partDone(m)) return '<span class="status st-ok">Votou ✓</span>';
+  if (m.votedSp || m.votedHours) return `<span class="status st-part">Falta ${m.votedSp ? 'Horas' : 'SP'}</span>`;
+  return '<span class="status st-wait">Aguardando</span>';
+}
+
 // Visão de quem está na sala, agrupada por cargo, com presença e status de voto
 function boardHTML(st, selfId, wide) {
   const present = st.members.filter((m) => m.online);
   const voters = st.members.filter((m) => m.role !== 'Observador');
-  const votedAll = voters.filter((m) => m.votedSp && m.votedHours).length;
+  const votedAll = voters.filter(memberDone).length;
   const summary = `<div class="summary">
     <span class="pill"><b>${present.length}</b> na sala</span>
     <span class="pill"><b>${votedAll}/${voters.length}</b> votaram SP e Horas</span>
@@ -382,23 +428,12 @@ function boardHTML(st, selfId, wide) {
       .sort((a, b) => (b.online - a.online) || a.name.localeCompare(b.name));
     if (!list.length) return '';
     const isObs = role === 'Observador';
-    const done = list.filter((m) => m.votedSp && m.votedHours).length;
+    const done = list.filter(memberDone).length;
     const rows = list.map((m) => {
-      let status = '', chips = '';
-      if (!isObs) {
-        if (st.revealed) {
-          chips = `<span class="vchip shown">${esc(m.sp ?? '–')}<small>SP</small></span><span class="vchip shown">${esc(m.hours ?? '–')}<small>Horas</small></span>`;
-        } else {
-          const both = m.votedSp && m.votedHours, any = m.votedSp || m.votedHours;
-          status = both ? '<span class="status st-ok">Votou ✓</span>'
-            : any ? `<span class="status st-part">Falta ${m.votedSp ? 'Horas' : 'SP'}</span>`
-            : '<span class="status st-wait">Aguardando</span>';
-        }
-      }
       return `<div class="person ${m.online ? '' : 'off'}" title="${m.online ? 'Na sala' : 'Saiu da sala'}">
         <span class="dot ${m.online ? '' : 'off'}"></span>
         <span class="nm">${esc(m.name)}${m.id === selfId ? ' (você)' : ''}${m.online ? '' : ' <small class="muted">(saiu)</small>'}</span>
-        ${status}${chips ? `<span class="votes">${chips}</span>` : ''}</div>`;
+        ${isObs ? '' : statusHTML(m, st.revealed)}</div>`;
     }).join('');
     return `<div class="group"><div class="group-head"><span class="badge r-${role}">${GROUP_LABEL[role]}</span>
       <span class="cnt">${isObs ? list.length + ' pessoa' + (list.length === 1 ? '' : 's') : done + '/' + list.length + ' votaram'}</span></div>${rows}</div>`;
@@ -426,9 +461,25 @@ function render() {
 
   if (document.activeElement !== $('story')) $('story').value = state.story;
 
-  // Baralhos
-  renderDeck('sp', state.spDeck, isObserver);
-  renderDeck('hours', state.hoursDeck, isObserver);
+  // Baralhos: FullStack vota em duas partes (Front/Back); os demais, num bloco só
+  const isFS = self.role === 'FullStack';
+  const locked = isObserver || state.revealed;
+  $('fsVote').classList.toggle('hidden', !isFS);
+  $('spCards').classList.toggle('hidden', isFS);
+  $('hoursCards').classList.toggle('hidden', isFS);
+  $('spTitle').textContent = isFS ? 'Valores de Story Points' : 'Story Points';
+  $('hoursTitle').textContent = isFS ? 'Valores de Horas' : 'Horas';
+  if (isFS) {
+    renderCards('feSpCards', 'sp', 'fe', state.spDeck, locked);
+    renderCards('feHoursCards', 'hours', 'fe', state.hoursDeck, locked);
+    renderCards('beSpCards', 'sp', 'be', state.spDeck, locked);
+    renderCards('beHoursCards', 'hours', 'be', state.hoursDeck, locked);
+  } else {
+    renderCards('spCards', 'sp', null, state.spDeck, locked);
+    renderCards('hoursCards', 'hours', null, state.hoursDeck, locked);
+  }
+  syncDeckInput('sp', state.spDeck);
+  syncDeckInput('hours', state.hoursDeck);
   $('observerNote').classList.toggle('hidden', !isObserver);
 
   // Quem está na sala
@@ -444,19 +495,25 @@ function render() {
   }
 }
 
-const myVote = { sp: null, hours: null };
+const myVote = { sp: null, hours: null, fe: { sp: null, hours: null }, be: { sp: null, hours: null } };
+const PART_NAME = { fe: 'front', be: 'back' };
 
-function renderDeck(kind, deck, isObserver) {
-  const el = $(kind === 'sp' ? 'spCards' : 'hoursCards');
+// part: null (voto único) ou 'fe'/'be' (partes Front/Back do FullStack)
+function renderCards(elId, kind, part, deck, locked) {
+  const el = $(elId);
+  const target = () => (part ? myVote[part] : myVote);
   el.innerHTML = deck.map((v) =>
-    `<button class="card ${myVote[kind] === v ? 'sel' : ''}" data-kind="${kind}" data-v="${esc(v)}" ${isObserver || state.revealed ? 'disabled' : ''}>${esc(v)}</button>`).join('');
+    `<button class="card ${target()[kind] === v ? 'sel' : ''}" data-v="${esc(v)}" ${locked ? 'disabled' : ''}>${esc(v)}</button>`).join('');
   el.querySelectorAll('.card').forEach((b) => b.onclick = async () => {
     const v = b.dataset.v;
-    const value = myVote[kind] === v ? null : v; // clicar de novo desmarca
-    myVote[kind] = value;
+    const value = target()[kind] === v ? null : v; // clicar de novo desmarca
+    target()[kind] = value;
     render();
-    await act('vote', { kind, value }).catch(() => {});
+    await act('vote', { kind, part: PART_NAME[part], value }).catch(() => {});
   });
+}
+
+function syncDeckInput(kind, deck) {
   const input = $(kind === 'sp' ? 'spDeckInput' : 'hoursDeckInput');
   if (document.activeElement !== input) input.value = deck.join(', ');
 }

@@ -4,7 +4,8 @@ Estimativa de **Story Points** e **Horas** por área (FrontEnd, BackEnd e QA), e
 
 - Valores padrão: Story Points 1, 2, 3, 5 e Horas de 1 a 40 (editáveis por sala, em "Editar valores").
 - Cargos: Dev FrontEnd, Dev BackEnd, Dev FullStack, QA e Observador.
-- Votos de FullStack entram nas médias de FrontEnd e BackEnd. Observador não vota.
+- FullStack vota Front e Back separados: a parte Front entra na média de FrontEnd e a parte Back na de BackEnd
+  (parte em branco não entra na média). Observador não vota.
 - "Quem está na sala": presença, cargo e status de voto de cada pessoa, atualizados ao vivo.
 - Painel só de visualização para projetar: `/painel/CODIGO`.
 

@@ -56,37 +56,49 @@ function avg(values) {
   return Math.round((nums.reduce((a, b) => a + b, 0) / nums.length) * 100) / 100;
 }
 
-// FrontEnd = FrontEnd + FullStack; BackEnd = BackEnd + FullStack; QA = QA
-const GROUPS = {
-  FrontEnd: ['FrontEnd', 'FullStack'],
-  BackEnd: ['BackEnd', 'FullStack'],
-  QA: ['QA'],
-};
+// Votos de um membro. FullStack vota separado na parte Front (fe) e na parte Back (be);
+// os demais cargos usam só sp/hours.
+function emptyVotes() {
+  return { sp: null, hours: null, fe: { sp: null, hours: null }, be: { sp: null, hours: null } };
+}
+
+// Voto que entra na média de cada área:
+// FrontEnd = FrontEnd + parte Front do FullStack; BackEnd = BackEnd + parte Back do FullStack; QA = QA
+function voteForGroup(m, group) {
+  if (m.role === group) return m.votes;
+  if (m.role === 'FullStack' && group === 'FrontEnd') return m.votes.fe;
+  if (m.role === 'FullStack' && group === 'BackEnd') return m.votes.be;
+  return null;
+}
 
 function computeResults(room) {
-  const voters = [...room.members.values()].filter((m) => m.role !== 'Observador');
   const results = {};
-  for (const [group, roles] of Object.entries(GROUPS)) {
-    const inGroup = voters.filter((m) => roles.includes(m.role));
+  for (const group of ['FrontEnd', 'BackEnd', 'QA']) {
+    const votes = [...room.members.values()].map((m) => voteForGroup(m, group)).filter(Boolean);
     results[group] = {
-      sp: avg(inGroup.map((m) => m.sp)),
-      hours: avg(inGroup.map((m) => m.hours)),
-      voters: inGroup.filter((m) => m.sp !== null || m.hours !== null).length,
+      sp: avg(votes.map((v) => v.sp)),
+      hours: avg(votes.map((v) => v.hours)),
+      voters: votes.filter((v) => v.sp !== null || v.hours !== null).length,
     };
   }
   return results;
 }
 
 function publicState(room) {
+  const part = (v) => ({
+    votedSp: v.sp !== null,
+    votedHours: v.hours !== null,
+    sp: room.revealed ? v.sp : null,
+    hours: room.revealed ? v.hours : null,
+  });
   const members = [...room.members.values()].map((m) => ({
     id: m.id,
     name: m.name,
     role: m.role,
     online: isOnline(m),
-    votedSp: m.sp !== null,
-    votedHours: m.hours !== null,
-    sp: room.revealed ? m.sp : null,
-    hours: room.revealed ? m.hours : null,
+    ...part(m.votes),
+    fe: m.role === 'FullStack' ? part(m.votes.fe) : null,
+    be: m.role === 'FullStack' ? part(m.votes.be) : null,
   }));
   return {
     id: room.id,
@@ -112,15 +124,14 @@ function findMember(room, memberId) {
   const gone = room.departed.get(memberId);
   if (!gone) return null;
   room.departed.delete(memberId);
-  const m = { id: memberId, name: gone.name, role: gone.role, sp: null, hours: null, connections: 0 };
+  const m = { id: memberId, name: gone.name, role: gone.role, votes: emptyVotes(), connections: 0 };
   room.members.set(memberId, m);
   return m;
 }
 
 function stateFor(room, memberId, base = publicState(room)) {
   const m = room.members.get(memberId);
-  const mine = m ? { sp: m.sp, hours: m.hours } : { sp: null, hours: null };
-  return { ...base, mine };
+  return { ...base, mine: m ? m.votes : emptyVotes() };
 }
 
 function broadcast(room) {
@@ -184,10 +195,11 @@ async function handleAction(room, body) {
       if (!name || !role) return { error: 'Informe nome e cargo.' };
       let m = member;
       if (m) {
+        if (m.role !== role) m.votes = emptyVotes(); // trocar de cargo zera os votos
         m.name = name;
         m.role = role;
       } else {
-        m = { id: crypto.randomUUID(), name, role, sp: null, hours: null, connections: 0 };
+        m = { id: crypto.randomUUID(), name, role, votes: emptyVotes(), connections: 0 };
         room.members.set(m.id, m);
       }
       return { memberId: m.id };
@@ -196,10 +208,14 @@ async function handleAction(room, body) {
       if (!member) return { error: 'Entre na sala primeiro.' };
       if (member.role === 'Observador') return { error: 'Observadores não votam.' };
       if (room.revealed) return { error: 'Votos já revelados. Inicie uma nova rodada.' };
-      const value = body.value === null ? null : String(body.value).trim().slice(0, 6);
-      if (body.kind === 'sp') member.sp = value;
-      else if (body.kind === 'hours') member.hours = value;
-      else return { error: 'Tipo de voto inválido.' };
+      if (body.kind !== 'sp' && body.kind !== 'hours') return { error: 'Tipo de voto inválido.' };
+      let target = member.votes;
+      if (member.role === 'FullStack') {
+        if (body.part === 'front') target = member.votes.fe;
+        else if (body.part === 'back') target = member.votes.be;
+        else return { error: 'Informe a parte do voto (Front ou Back).' };
+      }
+      target[body.kind] = body.value === null ? null : String(body.value).trim().slice(0, 6);
       return {};
     }
     case 'reveal':
@@ -210,7 +226,7 @@ async function handleAction(room, body) {
       if (!member) return { error: 'Entre na sala primeiro.' };
       room.revealed = false;
       for (const m of [...room.members.values()]) {
-        m.sp = null; m.hours = null;
+        m.votes = emptyVotes();
         // Ausentes saem da lista; se reabrirem a sala no mesmo navegador, voltam sozinhos (findMember)
         if (m !== member && !isOnline(m)) {
           room.members.delete(m.id);
