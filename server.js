@@ -30,6 +30,7 @@ function getRoom(id) {
   if (!rooms.has(id)) {
     rooms.set(id, {
       id,
+      name: '', // nome opcional da sala
       story: '',
       revealed: false,
       spDeck: [...DEFAULT_SP_DECK],
@@ -102,6 +103,7 @@ function publicState(room) {
   }));
   return {
     id: room.id,
+    name: room.name,
     story: room.story,
     revealed: room.revealed,
     spDeck: room.spDeck,
@@ -149,6 +151,11 @@ function sanitizeDeck(input) {
     if (v && !deck.includes(v)) deck.push(v);
   }
   return deck.slice(0, 60);
+}
+
+// Nome opcional da sala: texto simples, até 40 caracteres
+function cleanRoomName(v) {
+  return String(v || '').replace(/[\u0000-\u001f\u007f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 40);
 }
 
 function sendJson(res, status, obj) {
@@ -235,6 +242,10 @@ async function handleAction(room, body) {
       }
       if (typeof body.story === 'string') room.story = body.story.slice(0, 200);
       return {};
+    case 'rename':
+      if (!member) return { error: 'Entre na sala primeiro.' };
+      room.name = cleanRoomName(body.name);
+      return {};
     case 'story':
       if (!member) return { error: 'Entre na sala primeiro.' };
       room.story = String(body.story || '').slice(0, 200);
@@ -266,7 +277,7 @@ const server = http.createServer(async (req, res) => {
       const list = [];
       for (const room of rooms.values()) {
         const online = [...room.members.values()].filter(isOnline).length;
-        if (online) list.push({ id: room.id, people: online, story: room.story, revealed: room.revealed });
+        if (online) list.push({ id: room.id, name: room.name, people: online, story: room.story, revealed: room.revealed });
       }
       list.sort((a, b) => b.people - a.people || a.id.localeCompare(b.id));
       res.setHeader('Cache-Control', 'no-store');
@@ -277,7 +288,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/new-room') {
       let id;
       do { id = newId(); } while (rooms.has(id));
-      getRoom(id);
+      getRoom(id).name = cleanRoomName(url.searchParams.get('name'));
       return sendJson(res, 200, { roomId: id });
     }
 

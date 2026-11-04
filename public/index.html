@@ -146,6 +146,14 @@
   .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #222; color: #fff; padding: 9px 16px; border-radius: 8px; font-size: 14px; }
   .code { font-family: ui-monospace, monospace; font-weight: 700; letter-spacing: 1px; }
   .story { font-size: 16px; font-weight: 600; }
+  .room-title { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; min-width: 0; }
+  #roomNameInline { width: 240px; max-width: 100%; font-size: 15px; font-weight: 600; padding: 5px 9px; border-color: transparent; background: transparent; }
+  #roomNameInline:hover { border-color: var(--line); }
+  #roomNameInline:focus { border-color: var(--primary); background: var(--panel); outline: none; }
+  .board-title [data-room-name]:not(:empty)::before { content: ' · '; color: var(--muted); }
+  .room-item .nmline { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+  .room-item .rname { font-weight: 700; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .room-item .rname + .code { font-size: 13px; color: var(--muted); flex-shrink: 0; }
   .open-rooms { margin-top: 22px; border-top: 1px solid var(--line); padding-top: 16px; }
   .open-rooms h2 { margin-bottom: 10px; }
   .room-list { display: grid; gap: 8px; }
@@ -166,6 +174,8 @@
     <div class="center panel">
       <h1>🃏 Scrum Poker</h1>
       <p class="muted">Estime Story Points e Horas por área: FrontEnd, BackEnd e QA.</p>
+      <label for="roomName" style="margin-top:4px">Nome da sala <span class="muted" style="font-weight:400">(opcional)</span></label>
+      <input id="roomName" maxlength="40" placeholder="Ex.: Refinamento Sprint 42" style="margin-bottom:8px">
       <button class="primary" id="createRoom" style="width:100%">Criar nova sala</button>
       <label for="roomCode">Ou entre com o código da sala</label>
       <div class="row">
@@ -196,10 +206,14 @@
   <!-- Sala -->
   <section id="room" class="hidden">
     <header>
-      <h1>🃏 Sala <span class="code" data-room-code></span></h1>
-      <div class="row">
+      <div class="room-title">
+        <h1>🃏 Sala <span class="code" data-room-code></span></h1>
+        <input id="roomNameInline" maxlength="40" placeholder="Nome da sala (opcional)" aria-label="Nome da sala (opcional)" title="Enter ou clique fora para salvar">
+      </div>
+      <div class="row" style="flex-wrap:wrap">
         <button id="copyLink">Copiar link da sala</button>
         <button id="changeRole" class="link">Trocar nome/cargo</button>
+        <button id="leaveRoom">Sair da sala</button>
       </div>
     </header>
 
@@ -287,7 +301,7 @@
   <!-- Painel somente leitura (para projetar / compartilhar tela) -->
   <section id="board" class="hidden">
     <header>
-      <h1>🃏 Painel da sala <span class="code" data-room-code></span></h1>
+      <h1 class="board-title">🃏 Painel da sala <span class="code" data-room-code></span><span data-room-name></span></h1>
       <span class="muted" id="boardStory" style="font-weight:600"></span>
     </header>
     <div id="boardBody"></div>
@@ -354,7 +368,7 @@ async function loadOpenRooms() {
       ? `<div class="room-list">${rooms.map((r) => `
           <button class="room-item" data-room="${esc(r.id)}">
             <span class="info">
-              <span class="code">${esc(r.id)}</span>
+              <span class="nmline">${r.name ? `<span class="rname" title="${esc(r.name)}">${esc(r.name)}</span>` : ''}<span class="code">${esc(r.id)}</span></span>
               <span class="ppl">${r.people} pessoa${r.people === 1 ? '' : 's'} na sala${r.revealed ? ' · votos revelados' : ''}</span>
               ${r.story ? `<span class="st" title="${esc(r.story)}">${esc(r.story)}</span>` : ''}
             </span>
@@ -382,7 +396,8 @@ function route() {
 }
 
 $('createRoom').onclick = async () => {
-  const r = await fetch('/api/new-room').then((r) => r.json());
+  const name = $('roomName').value.trim();
+  const r = await fetch('/api/new-room' + (name ? '?name=' + encodeURIComponent(name) : '')).then((r) => r.json());
   location.href = '/sala/' + r.roomId;
 };
 $('goRoom').onclick = () => {
@@ -479,6 +494,7 @@ function connectBoard() {
   es = subscribe((data) => {
     state = data;
     $('boardStory').textContent = state.story ? 'Demanda: ' + state.story : '';
+    showRoomName(state.name);
     $('boardBody').innerHTML = boardHTML(state, null, true);
     $('boardResultsPanel').classList.toggle('hidden', !state.revealed);
     if (state.revealed) $('boardResults').innerHTML = resultsHTML(state.results);
@@ -628,6 +644,7 @@ function render() {
   const isObserver = self.role === 'Observador';
 
   if (document.activeElement !== $('story')) $('story').value = state.story;
+  showRoomName(state.name);
 
   // Baralhos: FullStack vota em duas partes (Front/Back); os demais, num bloco só
   const isFS = self.role === 'FullStack';
@@ -722,6 +739,27 @@ $('copyLink').onclick = async () => {
   catch { prompt('Copie o link da sala:', link); }
 };
 $('changeRole').onclick = () => { const s = me(); if (es) { es.close(); es = null; } renderJoin(s); };
+// Nome da sala editável no cabeçalho: salva ao sair do campo ou com Enter; Esc desfaz
+$('roomNameInline').onchange = () => act('rename', { name: $('roomNameInline').value.trim() }).catch(() => {});
+$('roomNameInline').onkeydown = (e) => {
+  if (e.key === 'Enter') e.target.blur();
+  if (e.key === 'Escape') { e.target.value = state?.name || ''; e.target.blur(); }
+};
+// Sair: fecha a conexão antes (senão a atualização da saída dispararia a reentrada automática),
+// remove a pessoa da sala e esquece o memberId desta sala; nome e cargo continuam salvos para a próxima entrada
+$('leaveRoom').onclick = async () => {
+  if (!confirm('Sair da sala? Seu voto desta rodada será removido.')) return;
+  if (es) { es.close(); es = null; }
+  await act('leave').catch(() => {});
+  forget();
+  location.href = '/';
+};
+
+function showRoomName(name) {
+  document.querySelectorAll('[data-room-name]').forEach((e) => (e.textContent = name || ''));
+  if (document.activeElement !== $('roomNameInline')) $('roomNameInline').value = name || '';
+  document.title = (location.pathname.startsWith('/painel') ? 'Painel ' : '') + (name ? name + ' · ' : '') + roomId + ' - Scrum Poker';
+}
 
 route();
 </script>

@@ -8,7 +8,9 @@ Estimativa de **Story Points** e **Horas** por área (FrontEnd, BackEnd e QA), e
   (parte em branco não entra na média). Observador não vota.
 - "Quem está na sala": presença, cargo e status de voto de cada pessoa, atualizados ao vivo.
 - Painel só de visualização para projetar: `/painel/CODIGO`.
-- A tela inicial lista as salas abertas (com alguém presente), com o código, quantas pessoas estão nela e a demanda atual. Clique para entrar.
+- A tela inicial lista as salas abertas (com alguém presente), com o nome (se houver), o código, quantas pessoas estão nela e a demanda atual. Clique para entrar.
+- Ao criar a sala, dá para dar um nome opcional (até 40 caracteres); dentro da sala ele aparece num campo ao lado do código e pode ser editado por qualquer participante.
+- "Sair da sala" remove você da sala na hora e volta para a tela inicial.
 - Depois de revelar, clique no card de uma área para ver quem votou em cada valor de Story Points, com as horas de cada pessoa.
 
 Sem dependências externas: só Node.js 18 ou mais novo.
