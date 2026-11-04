@@ -154,6 +154,7 @@
   #hoursLinkA, #boardHoursA { display: inline-block; background: var(--primary); color: var(--primary-ink); border: 1px solid var(--primary); border-radius: 8px; padding: 6px 14px; font-weight: 600; font-size: 14px; text-decoration: none; white-space: nowrap; }
   #hoursLinkA:not(.disabled):hover, #boardHoursA:not(.disabled):hover, #hoursLinkA:focus-visible, #boardHoursA:focus-visible { filter: brightness(1.1); outline: 2px solid var(--accent); outline-offset: 1px; }
   #hoursLinkA.disabled, #boardHoursA.disabled { background: var(--line); border-color: var(--line); color: var(--muted); opacity: .7; cursor: not-allowed; }
+  #hoursLinkA.disabled { cursor: pointer; } /* na sala, clicar no botão inativo abre o campo do link */
   #hoursLinkEdit { padding: 2px 4px; font-size: 13px; }
   #hoursLinkInput { width: 320px; max-width: 100%; padding: 5px 9px; font-size: 13px; }
   #hoursLinkError { color: #e03131; font-size: 12px; }
@@ -795,21 +796,23 @@ function setHoursButton(a, link) {
   a.title = link || 'Ainda não foi definido o link da demanda para lançamento de horas.';
   if (link) a.href = link; else a.removeAttribute('href');
 }
+// O campo só aparece ao clicar no botão inativo (sem link) ou no ✏️ (com link)
 function showHoursLink(link) {
-  const editing = editingHoursLink || !link;
+  const editing = editingHoursLink;
   setHoursButton($('hoursLinkA'), link);
-  $('hoursLinkEdit').classList.toggle('hidden', editing);
+  $('hoursLinkEdit').classList.toggle('hidden', editing || !link);
+  if (!editing) $('hoursLinkError').classList.add('hidden');
   $('hoursLinkInput').classList.toggle('hidden', !editing);
   $('hoursLinkLabel').classList.toggle('hidden', !editing);
   if (document.activeElement !== $('hoursLinkInput') && !editingHoursLink) $('hoursLinkInput').value = link || '';
 }
 async function saveHoursLink() {
   const link = $('hoursLinkInput').value.trim();
-  if (link === (state?.hoursLink || '') && link) { editingHoursLink = false; showHoursLink(link); return; }
+  if (link === (state?.hoursLink || '')) { editingHoursLink = false; showHoursLink(state?.hoursLink); return; }
   try {
     await act('hoursLink', { link });
-    $('hoursLinkError').classList.add('hidden');
     editingHoursLink = false;
+    showHoursLink(state?.hoursLink); // a atualização da sala pode ter chegado antes desta resposta
   } catch (e) {
     $('hoursLinkError').textContent = e.message || 'Link inválido.';
     $('hoursLinkError').classList.remove('hidden');
@@ -819,8 +822,17 @@ $('hoursLinkInput').onkeydown = (e) => {
   if (e.key === 'Enter') e.target.blur();
   if (e.key === 'Escape') { editingHoursLink = false; $('hoursLinkError').classList.add('hidden'); showHoursLink(state?.hoursLink); e.target.blur(); }
 };
-$('hoursLinkInput').onblur = () => { if (editingHoursLink || $('hoursLinkInput').value.trim()) saveHoursLink(); };
-$('hoursLinkEdit').onclick = () => { editingHoursLink = true; showHoursLink(state?.hoursLink); $('hoursLinkInput').focus(); $('hoursLinkInput').select(); };
+$('hoursLinkInput').onblur = () => { if (editingHoursLink) saveHoursLink(); };
+function openHoursLinkEditor() {
+  editingHoursLink = true;
+  $('hoursLinkInput').value = state?.hoursLink || '';
+  showHoursLink(state?.hoursLink);
+  $('hoursLinkInput').focus();
+  $('hoursLinkInput').select();
+}
+$('hoursLinkEdit').onclick = openHoursLinkEditor;
+// Botão inativo (sem link): clicar abre o campo para colar o link
+$('hoursLinkA').onclick = (e) => { if (!state?.hoursLink) { e.preventDefault(); openHoursLinkEditor(); } };
 
 function showRoomName(name) {
   document.querySelectorAll('[data-room-name]').forEach((e) => (e.textContent = name || ''));
