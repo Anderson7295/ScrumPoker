@@ -49,9 +49,14 @@
   .card:disabled { transform: none; cursor: default; }
   .card.sel:disabled { opacity: 1; }
   .deck-edit { margin-top: 10px; }
-  .fs-part { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin: 12px 0 20px; }
-  .fs-part h2 { margin-bottom: 6px; }
-  .fs-lbl { font-size: 12px; font-weight: 600; color: var(--muted); margin: 10px 0 6px; }
+  .tabs { display: flex; gap: 4px; margin-top: 10px; border-bottom: 1px solid var(--line); }
+  .tab { border: 1px solid transparent; border-bottom: none; border-radius: 8px 8px 0 0; background: none; color: var(--muted); font-weight: 600; margin-bottom: -1px; }
+  .tab:hover { border-color: transparent; color: var(--text); }
+  .tab.active { border-color: var(--line); background: var(--panel); color: var(--text); }
+  .tab { flex: 1; max-width: 160px; }
+  .tab .mark { margin-left: 6px; font-size: 12px; color: var(--ok); }
+  .fs-part { padding: 4px 2px 0; margin: 0 0 20px; }
+  .fs-lbl { font-size: 12px; font-weight: 600; color: var(--muted); margin: 12px 0 6px; }
   .badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; color: #fff; }
   .r-FrontEnd { background: var(--fe); } .r-BackEnd { background: var(--be); } .r-QA { background: var(--qa); }
   .r-FullStack { background: var(--fs); } .r-Observador { background: var(--obs); }
@@ -151,15 +156,17 @@
           <!-- Dev FullStack: vota separado na parte Front e na parte Back -->
           <div id="fsVote" class="hidden">
             <p class="muted" style="font-size:13px;margin:0 0 4px">Vote só na parte que se aplica; parte em branco não entra na média.</p>
-            <div class="fs-part">
-              <h2>Parte Front</h2>
+            <div class="tabs" role="tablist">
+              <button class="tab" role="tab" data-fs-tab="fe">Front</button>
+              <button class="tab" role="tab" data-fs-tab="be">Back</button>
+            </div>
+            <div class="fs-part" data-fs-panel="fe">
               <div class="fs-lbl">Story Points</div>
               <div class="cards" id="feSpCards"></div>
               <div class="fs-lbl">Horas</div>
               <div class="cards" id="feHoursCards"></div>
             </div>
-            <div class="fs-part">
-              <h2>Parte Back</h2>
+            <div class="fs-part" data-fs-panel="be">
               <div class="fs-lbl">Story Points</div>
               <div class="cards" id="beSpCards"></div>
               <div class="fs-lbl">Horas</div>
@@ -364,6 +371,7 @@ function connect() {
   show('room');
   if (es) es.close();
   es = subscribe((data) => {
+    if (state?.revealed && !data.revealed) fsTab = 'fe'; // nova rodada volta para a aba Front
     state = data;
     const mine = state.mine;
     Object.assign(myVote, { sp: mine.sp, hours: mine.hours, fe: { ...mine.fe }, be: { ...mine.be } });
@@ -470,6 +478,15 @@ function render() {
   $('spTitle').textContent = isFS ? 'Valores de Story Points' : 'Story Points';
   $('hoursTitle').textContent = isFS ? 'Valores de Horas' : 'Horas';
   if (isFS) {
+    // Abas Front/Back: mostra só a parte escolhida; ✓ na aba indica parte com SP e Horas votados
+    document.querySelectorAll('[data-fs-tab]').forEach((t) => {
+      const p = myVote[t.dataset.fsTab];
+      const mark = p.sp !== null && p.hours !== null ? '✓' : p.sp !== null || p.hours !== null ? '•' : '';
+      t.classList.toggle('active', t.dataset.fsTab === fsTab);
+      t.setAttribute('aria-selected', t.dataset.fsTab === fsTab);
+      t.innerHTML = (t.dataset.fsTab === 'fe' ? 'Front' : 'Back') + (mark ? `<span class="mark">${mark}</span>` : '');
+    });
+    document.querySelectorAll('[data-fs-panel]').forEach((p) => p.classList.toggle('hidden', p.dataset.fsPanel !== fsTab));
     renderCards('feSpCards', 'sp', 'fe', state.spDeck, locked);
     renderCards('feHoursCards', 'hours', 'fe', state.hoursDeck, locked);
     renderCards('beSpCards', 'sp', 'be', state.spDeck, locked);
@@ -497,6 +514,8 @@ function render() {
 
 const myVote = { sp: null, hours: null, fe: { sp: null, hours: null }, be: { sp: null, hours: null } };
 const PART_NAME = { fe: 'front', be: 'back' };
+let fsTab = 'fe';
+document.querySelectorAll('[data-fs-tab]').forEach((t) => t.onclick = () => { fsTab = t.dataset.fsTab; render(); });
 
 // part: null (voto único) ou 'fe'/'be' (partes Front/Back do FullStack)
 function renderCards(elId, kind, part, deck, locked) {
