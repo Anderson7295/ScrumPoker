@@ -261,6 +261,18 @@ const server = http.createServer(async (req, res) => {
   const parts = url.pathname.split('/').filter(Boolean);
 
   try {
+    // Salas abertas (com alguém presente), para a tela inicial
+    if (req.method === 'GET' && url.pathname === '/api/rooms') {
+      const list = [];
+      for (const room of rooms.values()) {
+        const online = [...room.members.values()].filter(isOnline).length;
+        if (online) list.push({ id: room.id, people: online, story: room.story, revealed: room.revealed });
+      }
+      list.sort((a, b) => b.people - a.people || a.id.localeCompare(b.id));
+      res.setHeader('Cache-Control', 'no-store');
+      return sendJson(res, 200, { rooms: list });
+    }
+
     // Nova sala
     if (req.method === 'GET' && url.pathname === '/api/new-room') {
       let id;

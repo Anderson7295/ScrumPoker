@@ -146,6 +146,16 @@
   .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #222; color: #fff; padding: 9px 16px; border-radius: 8px; font-size: 14px; }
   .code { font-family: ui-monospace, monospace; font-weight: 700; letter-spacing: 1px; }
   .story { font-size: 16px; font-weight: 600; }
+  .open-rooms { margin-top: 22px; border-top: 1px solid var(--line); padding-top: 16px; }
+  .open-rooms h2 { margin-bottom: 10px; }
+  .room-list { display: grid; gap: 8px; }
+  .room-item { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; padding: 10px 12px; border-radius: 10px; }
+  .room-item:hover, .room-item:focus-visible { border-color: var(--primary); background: var(--accent); outline: none; }
+  .room-item .info { flex: 1; min-width: 0; display: grid; gap: 1px; }
+  .room-item .code { font-size: 16px; }
+  .room-item .ppl { font-size: 13px; color: var(--muted); }
+  .room-item .st { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .room-item .go { color: var(--primary); font-weight: 600; font-size: 14px; flex-shrink: 0; }
 </style>
 </head>
 <body>
@@ -161,6 +171,10 @@
       <div class="row">
         <input id="roomCode" placeholder="Ex.: K7QW2M" maxlength="12">
         <button id="goRoom">Entrar</button>
+      </div>
+      <div class="open-rooms">
+        <h2>Salas abertas</h2>
+        <div id="openRooms" aria-live="polite"><p class="muted" style="margin:0">Carregando…</p></div>
       </div>
     </div>
   </section>
@@ -332,12 +346,35 @@ async function act(action, extra = {}) {
 
 function forget() { store.del('sp-member:' + roomId); memberId = null; if (es) { es.close(); es = null; } }
 
+// Tela inicial: salas com alguém presente, atualizadas a cada 5 s
+async function loadOpenRooms() {
+  try {
+    const { rooms } = await fetch('/api/rooms', { cache: 'no-store' }).then((r) => r.json());
+    $('openRooms').innerHTML = rooms.length
+      ? `<div class="room-list">${rooms.map((r) => `
+          <button class="room-item" data-room="${esc(r.id)}">
+            <span class="info">
+              <span class="code">${esc(r.id)}</span>
+              <span class="ppl">${r.people} pessoa${r.people === 1 ? '' : 's'} na sala${r.revealed ? ' · votos revelados' : ''}</span>
+              ${r.story ? `<span class="st" title="${esc(r.story)}">${esc(r.story)}</span>` : ''}
+            </span>
+            <span class="go">Entrar ›</span>
+          </button>`).join('')}</div>`
+      : '<p class="muted" style="margin:0">Nenhuma sala aberta no momento. Crie uma nova.</p>';
+    $('openRooms').querySelectorAll('[data-room]').forEach((b) => b.onclick = () => { location.href = '/sala/' + b.dataset.room; });
+  } catch {
+    $('openRooms').innerHTML = '<p class="muted" style="margin:0">Não foi possível carregar as salas. Tentando de novo…</p>';
+  }
+  clearTimeout(loadOpenRooms.t);
+  loadOpenRooms.t = setTimeout(loadOpenRooms, 5000);
+}
+
 // ---------- Rotas ----------
 function route() {
   const pb = location.pathname.match(/^\/painel\/([A-Za-z0-9]+)/);
   if (pb) { roomId = pb[1].toUpperCase(); document.querySelectorAll('[data-room-code]').forEach((e) => (e.textContent = roomId)); connectBoard(); return; }
   const m = location.pathname.match(/^\/sala\/([A-Za-z0-9]+)/);
-  if (!m) { show('home'); return; }
+  if (!m) { show('home'); loadOpenRooms(); return; }
   roomId = m[1].toUpperCase();
   document.querySelectorAll('[data-room-code]').forEach((e) => (e.textContent = roomId));
   memberId = store.get('sp-member:' + roomId);
