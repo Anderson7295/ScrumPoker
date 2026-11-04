@@ -51,6 +51,7 @@
   .card:disabled { transform: none; cursor: default; }
   .card.sel:disabled { opacity: 1; }
   .deck-edit { margin-top: 10px; }
+  .observer-box { margin: 0 0 18px; padding: 14px 16px; border: 1px dashed var(--line); border-radius: 10px; background: var(--bg); color: var(--muted); text-align: center; font-weight: 600; }
   .tabs { display: flex; gap: 4px; margin-top: 10px; border-bottom: 1px solid var(--line); }
   .tab { border: 1px solid transparent; border-bottom: none; border-radius: 8px 8px 0 0; background: none; color: var(--muted); font-weight: 600; margin-bottom: -1px; }
   .tab:hover { border-color: transparent; color: var(--text); }
@@ -236,7 +237,7 @@
       </div>
       <div class="row" style="flex-wrap:wrap">
         <button id="copyLink">Copiar link da sala</button>
-        <button id="changeRole" class="link">Trocar nome/cargo</button>
+        <button id="changeRole">Trocar nome/cargo</button>
         <button id="leaveRoom">Sair da sala</button>
       </div>
     </header>
@@ -249,6 +250,8 @@
         </div>
 
         <div class="panel" id="votePanel">
+          <!-- Observador: no lugar das cartas -->
+          <p class="observer-box hidden" id="observerNote">Você está como observador e não vota.</p>
           <!-- Dev FullStack: vota separado na parte Front e na parte Back -->
           <div id="fsVote" class="hidden">
             <p class="muted" style="font-size:13px;margin:0 0 4px">Vote só na parte que se aplica; parte em branco não entra na média.</p>
@@ -295,7 +298,6 @@
             </div>
             <p class="muted" style="font-size:13px;margin:6px 0 0">A mudança vale para todos da sala.</p>
           </div>
-          <p class="muted hidden" id="observerNote" style="margin:12px 0 0">Você está como Observador e não vota.</p>
         </div>
 
         <div class="panel">
@@ -675,15 +677,18 @@ function render() {
   showRoomName(state.name);
   showHoursLink(state.hoursLink);
 
-  // Baralhos: FullStack vota em duas partes (Front/Back); os demais, num bloco só
+  // Baralhos: FullStack vota em duas partes (Front/Back); os demais, num bloco só;
+  // Observador não vê cartas, só o aviso (a edição dos valores continua disponível)
   const isFS = self.role === 'FullStack';
   const locked = isObserver || state.revealed;
   $('fsVote').classList.toggle('hidden', !isFS);
-  $('spCards').classList.toggle('hidden', isFS);
-  $('hoursCards').classList.toggle('hidden', isFS);
-  $('spTitle').textContent = isFS ? 'Valores de Story Points' : 'Story Points';
-  $('hoursTitle').textContent = isFS ? 'Valores de Horas' : 'Horas';
-  if (isFS) {
+  $('spCards').classList.toggle('hidden', isFS || isObserver);
+  $('hoursCards').classList.toggle('hidden', isFS || isObserver);
+  $('spTitle').textContent = isFS || isObserver ? 'Valores de Story Points' : 'Story Points';
+  $('hoursTitle').textContent = isFS || isObserver ? 'Valores de Horas' : 'Horas';
+  if (isObserver) {
+    // nada a desenhar: o observador não vota
+  } else if (isFS) {
     // Abas Front/Back: mostra só a parte escolhida; ✓ na aba indica parte com SP e Horas votados
     document.querySelectorAll('[data-fs-tab]').forEach((t) => {
       const p = myVote[t.dataset.fsTab];
