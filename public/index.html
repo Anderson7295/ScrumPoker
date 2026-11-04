@@ -151,8 +151,8 @@
   .hours-row label { margin: 0; font-weight: 600; color: var(--muted); font-size: 13px; }
   #hoursLinkView { display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 100%; }
   #hoursLinkView.hidden { display: none; }
-  #hoursLinkA, #boardHoursA { color: var(--primary); font-weight: 600; font-size: 14px; text-decoration: none; }
-  #hoursLinkA:hover, #boardHoursA:hover { text-decoration: underline; }
+  #hoursLinkA, #boardHoursA { display: inline-block; background: var(--primary); color: var(--primary-ink); border: 1px solid var(--primary); border-radius: 8px; padding: 6px 14px; font-weight: 600; font-size: 14px; text-decoration: none; white-space: nowrap; }
+  #hoursLinkA:hover, #boardHoursA:hover, #hoursLinkA:focus-visible, #boardHoursA:focus-visible { filter: brightness(1.1); outline: 2px solid var(--accent); outline-offset: 1px; }
   #hoursLinkEdit { padding: 2px 4px; font-size: 13px; }
   #hoursLinkInput { width: 320px; max-width: 100%; padding: 5px 9px; font-size: 13px; }
   #hoursLinkError { color: #e03131; font-size: 12px; }
@@ -787,7 +787,7 @@ $('leaveRoom').onclick = async () => {
 
 // ---------- Link para lançamento de horas ----------
 // Texto mostrado no lugar da URL (a URL completa fica só na dica ao passar o mouse)
-const HOURS_LINK_TEXT = '🔗 Lançamento de horas';
+const HOURS_LINK_TEXT = '🔗 Lançar horas';
 let editingHoursLink = false;
 function showHoursLink(link) {
   const editing = editingHoursLink || !link;

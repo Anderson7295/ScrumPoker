@@ -11,7 +11,7 @@ Estimativa de **Story Points** e **Horas** por área (FrontEnd, BackEnd e QA), e
 - A tela inicial lista as salas abertas (com alguém presente), com o nome (se houver), o código, quantas pessoas estão nela e a demanda atual. Clique para entrar.
 - Ao criar a sala, dá para dar um nome opcional (até 40 caracteres); dentro da sala ele aparece num campo ao lado do código e pode ser editado por qualquer participante.
 - "Sair da sala" remove você da sala na hora e volta para a tela inicial.
-- "Link para lançamento de horas": cole o link da demanda no topo da sala; para todos aparece "🔗 Lançamento de horas",
+- "Link para lançamento de horas": cole o link da demanda no topo da sala; para todos aparece o botão "🔗 Lançar horas",
   que abre a página numa nova aba. O ✏️ ao lado permite editar ou remover o link.
 - Depois de revelar, clique no card de uma área para ver quem votou em cada valor de Story Points, com as horas de cada pessoa.
 
