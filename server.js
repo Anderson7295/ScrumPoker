@@ -31,6 +31,7 @@ function getRoom(id) {
     rooms.set(id, {
       id,
       name: '', // nome opcional da sala
+      hoursLink: '', // link da demanda para lançamento de horas (opcional)
       story: '',
       revealed: false,
       spDeck: [...DEFAULT_SP_DECK],
@@ -104,6 +105,7 @@ function publicState(room) {
   return {
     id: room.id,
     name: room.name,
+    hoursLink: room.hoursLink,
     story: room.story,
     revealed: room.revealed,
     spDeck: room.spDeck,
@@ -242,6 +244,17 @@ async function handleAction(room, body) {
       }
       if (typeof body.story === 'string') room.story = body.story.slice(0, 200);
       return {};
+    case 'hoursLink': {
+      if (!member) return { error: 'Entre na sala primeiro.' };
+      const link = String(body.link || '').trim().slice(0, 500);
+      if (link) {
+        let u;
+        try { u = new URL(link); } catch { return { error: 'Link inválido. Use um endereço começando com https://' }; }
+        if (u.protocol !== 'http:' && u.protocol !== 'https:') return { error: 'Link inválido. Use um endereço começando com https://' };
+        room.hoursLink = u.href;
+      } else room.hoursLink = '';
+      return {};
+    }
     case 'rename':
       if (!member) return { error: 'Entre na sala primeiro.' };
       room.name = cleanRoomName(body.name);

@@ -146,6 +146,16 @@
   .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #222; color: #fff; padding: 9px 16px; border-radius: 8px; font-size: 14px; }
   .code { font-family: ui-monospace, monospace; font-weight: 700; letter-spacing: 1px; }
   .story { font-size: 16px; font-weight: 600; }
+  .room-head { display: grid; gap: 6px; min-width: 0; flex: 1 1 320px; }
+  .hours-row { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; font-size: 13px; min-width: 0; }
+  .hours-row label { margin: 0; font-weight: 600; color: var(--muted); font-size: 13px; }
+  #hoursLinkView { display: inline-flex; align-items: center; gap: 4px; min-width: 0; max-width: 100%; }
+  #hoursLinkView.hidden { display: none; }
+  #hoursLinkA, #boardHoursA { color: var(--primary); font-weight: 600; font-size: 14px; text-decoration: none; }
+  #hoursLinkA:hover, #boardHoursA:hover { text-decoration: underline; }
+  #hoursLinkEdit { padding: 2px 4px; font-size: 13px; }
+  #hoursLinkInput { width: 320px; max-width: 100%; padding: 5px 9px; font-size: 13px; }
+  #hoursLinkError { color: #e03131; font-size: 12px; }
   .room-title { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; min-width: 0; }
   #roomNameInline { width: 240px; max-width: 100%; font-size: 15px; font-weight: 600; padding: 5px 9px; border-color: transparent; background: transparent; }
   #roomNameInline:hover { border-color: var(--line); }
@@ -206,9 +216,21 @@
   <!-- Sala -->
   <section id="room" class="hidden">
     <header>
-      <div class="room-title">
-        <h1>🃏 Sala <span class="code" data-room-code></span></h1>
-        <input id="roomNameInline" maxlength="40" placeholder="Nome da sala (opcional)" aria-label="Nome da sala (opcional)" title="Enter ou clique fora para salvar">
+      <div class="room-head">
+        <div class="room-title">
+          <h1>🃏 Sala <span class="code" data-room-code></span></h1>
+          <input id="roomNameInline" maxlength="40" placeholder="Nome da sala (opcional)" aria-label="Nome da sala (opcional)" title="Enter ou clique fora para salvar">
+        </div>
+        <!-- Link da demanda para lançamento de horas: campo quando vazio, link clicável quando preenchido -->
+        <div class="hours-row">
+          <label for="hoursLinkInput" id="hoursLinkLabel">Link para lançamento de horas:</label>
+          <span id="hoursLinkView" class="hidden">
+            <a id="hoursLinkA" href="#" target="_blank" rel="noopener noreferrer"></a>
+            <button class="link" id="hoursLinkEdit" title="Editar link" aria-label="Editar link">✏️</button>
+          </span>
+          <input id="hoursLinkInput" maxlength="500" placeholder="Cole o link da demanda (https://...)">
+          <span id="hoursLinkError" class="hidden"></span>
+        </div>
       </div>
       <div class="row" style="flex-wrap:wrap">
         <button id="copyLink">Copiar link da sala</button>
@@ -304,6 +326,9 @@
       <h1 class="board-title">🃏 Painel da sala <span class="code" data-room-code></span><span data-room-name></span></h1>
       <span class="muted" id="boardStory" style="font-weight:600"></span>
     </header>
+    <p class="hours-row hidden" id="boardHours" style="margin:-8px 0 14px">
+      <a id="boardHoursA" target="_blank" rel="noopener noreferrer"></a>
+    </p>
     <div id="boardBody"></div>
     <div class="panel hidden" id="boardResultsPanel" style="margin-top:16px">
       <h2>Resultado</h2>
@@ -495,6 +520,10 @@ function connectBoard() {
     state = data;
     $('boardStory').textContent = state.story ? 'Demanda: ' + state.story : '';
     showRoomName(state.name);
+    $('boardHours').classList.toggle('hidden', !state.hoursLink);
+    $('boardHoursA').textContent = HOURS_LINK_TEXT;
+    $('boardHoursA').title = state.hoursLink || '';
+    $('boardHoursA').href = state.hoursLink || '#';
     $('boardBody').innerHTML = boardHTML(state, null, true);
     $('boardResultsPanel').classList.toggle('hidden', !state.revealed);
     if (state.revealed) $('boardResults').innerHTML = resultsHTML(state.results);
@@ -645,6 +674,7 @@ function render() {
 
   if (document.activeElement !== $('story')) $('story').value = state.story;
   showRoomName(state.name);
+  showHoursLink(state.hoursLink);
 
   // Baralhos: FullStack vota em duas partes (Front/Back); os demais, num bloco só
   const isFS = self.role === 'FullStack';
@@ -754,6 +784,39 @@ $('leaveRoom').onclick = async () => {
   forget();
   location.href = '/';
 };
+
+// ---------- Link para lançamento de horas ----------
+// Texto mostrado no lugar da URL (a URL completa fica só na dica ao passar o mouse)
+const HOURS_LINK_TEXT = '🔗 Lançamento de horas';
+let editingHoursLink = false;
+function showHoursLink(link) {
+  const editing = editingHoursLink || !link;
+  $('hoursLinkView').classList.toggle('hidden', editing);
+  $('hoursLinkInput').classList.toggle('hidden', !editing);
+  $('hoursLinkLabel').classList.toggle('hidden', !editing);
+  $('hoursLinkA').textContent = HOURS_LINK_TEXT;
+  $('hoursLinkA').title = link || '';
+  $('hoursLinkA').href = link || '#';
+  if (document.activeElement !== $('hoursLinkInput') && !editingHoursLink) $('hoursLinkInput').value = link || '';
+}
+async function saveHoursLink() {
+  const link = $('hoursLinkInput').value.trim();
+  if (link === (state?.hoursLink || '') && link) { editingHoursLink = false; showHoursLink(link); return; }
+  try {
+    await act('hoursLink', { link });
+    $('hoursLinkError').classList.add('hidden');
+    editingHoursLink = false;
+  } catch (e) {
+    $('hoursLinkError').textContent = e.message || 'Link inválido.';
+    $('hoursLinkError').classList.remove('hidden');
+  }
+}
+$('hoursLinkInput').onkeydown = (e) => {
+  if (e.key === 'Enter') e.target.blur();
+  if (e.key === 'Escape') { editingHoursLink = false; $('hoursLinkError').classList.add('hidden'); showHoursLink(state?.hoursLink); e.target.blur(); }
+};
+$('hoursLinkInput').onblur = () => { if (editingHoursLink || $('hoursLinkInput').value.trim()) saveHoursLink(); };
+$('hoursLinkEdit').onclick = () => { editingHoursLink = true; showHoursLink(state?.hoursLink); $('hoursLinkInput').focus(); $('hoursLinkInput').select(); };
 
 function showRoomName(name) {
   document.querySelectorAll('[data-room-name]').forEach((e) => (e.textContent = name || ''));
