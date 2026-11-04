@@ -10,11 +10,13 @@
     --primary: #3b5bdb; --primary-ink: #fff; --accent: #e8edff;
     --fe: #1c7ed6; --be: #2f9e44; --qa: #e8590c; --fs: #7048e8; --obs: #868e96;
     --ok: #2f9e44; --radius: 12px;
+    --sp: #2b3fae; --sp-bg: #e8edff; --hr: #0b6e69; --hr-bg: #dff4f2; --fs-text: #7048e8;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #12151c; --panel: #1b1f29; --text: #e6e8ee; --muted: #9aa3b2; --line: #2b3140;
       --primary: #5c7cfa; --accent: #26304d;
+      --sp: #a5b4ff; --sp-bg: #262f52; --hr: #5fd4c8; --hr-bg: #143633; --fs-text: #b197fc;
     }
   }
   * { box-sizing: border-box; }
@@ -95,7 +97,49 @@
   @media (max-width: 560px) { .results { grid-template-columns: 1fr; } }
   .res { border-radius: 10px; padding: 14px; border: 1px solid var(--line); border-top: 5px solid; }
   .res.FrontEnd { border-top-color: var(--fe); } .res.BackEnd { border-top-color: var(--be); } .res.QA { border-top-color: var(--qa); }
-  .res h3 { margin: 0 0 8px; font-size: 15px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12px; color: var(--muted); margin: -4px 0 10px; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .vals { display: flex; gap: 4px; flex-shrink: 0; align-items: center; }
+  .vals-fs { display: grid; grid-template-columns: auto auto auto; gap: 3px 4px; align-items: center; flex-shrink: 0; }
+  .vals-fs .part { font-size: 10px; font-weight: 700; color: var(--muted); text-align: right; }
+  .vp { font-size: 12px; font-weight: 700; border-radius: 6px; padding: 1px 7px; min-width: 28px; text-align: center; font-variant-numeric: tabular-nums; }
+  .vp-sp { background: var(--sp-bg); color: var(--sp); }
+  .vp-hr { background: var(--hr-bg); color: var(--hr); }
+  .vp-none { color: var(--muted); border: 1px dashed var(--line); font-weight: 400; }
+  .revealed .person { padding: 5px 0; }
+  .res h3 { margin: 0 0 8px; font-size: 15px; display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+  .res[data-group] { cursor: pointer; transition: border-color .1s, transform .1s; }
+  .res[data-group]:hover, .res[data-group]:focus-visible { border-color: var(--primary); transform: translateY(-2px); outline: none; }
+  .res-more { font-size: 12px; font-weight: 600; color: var(--primary); }
+  dialog { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); color: var(--text); padding: 18px; width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 48px); }
+  dialog::backdrop { background: rgb(0 0 0 / .45); }
+  .modal-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .modal-head .link { font-size: 18px; }
+  #resModal { border-top: 5px solid var(--primary); }
+  #resModal[data-group="FrontEnd"] { border-top-color: var(--fe); }
+  #resModal[data-group="BackEnd"] { border-top-color: var(--be); }
+  #resModal[data-group="QA"] { border-top-color: var(--qa); }
+  .m-big { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 6px; }
+  .m-big div { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; display: grid; }
+  .m-big b { font-size: 22px; font-variant-numeric: tabular-nums; }
+  .m-big span { font-size: 11px; color: var(--muted); }
+  .m-groups { max-height: 60vh; overflow-y: auto; }
+  .g-group { border-top: 1px solid var(--line); padding: 10px 0 6px; }
+  .g-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .g-val { font-weight: 800; font-size: 15px; color: var(--sp); }
+  .g-meta { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .g-bar { height: 6px; border-radius: 3px; margin: 6px 0 8px; background: linear-gradient(var(--sp), var(--sp)) 0 0 / var(--w) 100% no-repeat, var(--sp-bg); }
+  .g-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; }
+  .chip .fs-mark { color: var(--fs-text); font-size: 11px; font-weight: 700; margin-left: -2px; white-space: nowrap; }
+  .chip .h { font-weight: 700; color: var(--hr); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .vtable { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .vtable th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  .vtable td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .vtable tr:last-child td { border-bottom: none; }
+  .vtable .n { text-align: right; white-space: nowrap; font-weight: 700; }
+  .vtable th.n { font-weight: 600; }
   .res .num { font-size: 28px; font-weight: 800; }
   .res .lbl { font-size: 12px; color: var(--muted); }
   .res .pair { display: flex; gap: 18px; }
@@ -212,7 +256,7 @@
           </div>
           <p class="muted" id="hiddenNote" style="margin:12px 0 0">Os votos ficam ocultos até alguém clicar em Revelar.</p>
           <div class="results hidden" id="results" style="margin-top:14px"></div>
-          <p class="muted" style="font-size:13px;margin:10px 0 0">Média de cada área. Dev FullStack vota Front e Back separados: a parte Front entra em FrontEnd e a parte Back em BackEnd (parte em branco não conta). Valores como "?" não entram na média.</p>
+          <p class="muted" style="font-size:13px;margin:10px 0 0">Média de cada área. Dev FullStack vota Front e Back separados: a parte Front entra em FrontEnd e a parte Back em BackEnd (parte em branco não conta). Clique numa área para ver os votos de cada pessoa.</p>
         </div>
       </div>
 
@@ -240,6 +284,15 @@
   </section>
 </div>
 <div class="toast hidden" id="toast"></div>
+
+<!-- Resumo dos votos de uma área (abre ao clicar num card de resultado) -->
+<dialog id="resModal" aria-labelledby="resModalTitle">
+  <div class="modal-head">
+    <h2 id="resModalTitle" style="margin:0"></h2>
+    <button class="link" id="resModalClose" aria-label="Fechar">✕</button>
+  </div>
+  <div id="resModalBody"></div>
+</dialog>
 
 <script>
 const ROLES = ['FrontEnd', 'BackEnd', 'FullStack', 'QA', 'Observador'];
@@ -392,6 +445,7 @@ function connectBoard() {
     $('boardBody').innerHTML = boardHTML(state, null, true);
     $('boardResultsPanel').classList.toggle('hidden', !state.revealed);
     if (state.revealed) $('boardResults').innerHTML = resultsHTML(state.results);
+    syncResultModal();
   });
 }
 
@@ -402,20 +456,25 @@ const GROUP_ORDER = ['FrontEnd', 'FullStack', 'BackEnd', 'QA', 'Observador'];
 const partDone = (p) => p.votedSp && p.votedHours;
 const memberDone = (m) => (m.role === 'FullStack' ? partDone(m.fe) || partDone(m.be) : partDone(m));
 
+// Votos revelados: etiqueta azul = Story Points, verde = Horas (legenda no topo da lista)
+function valuePills(v) {
+  const pill = (val, cls, title, suffix = '') => val === null
+    ? `<span class="vp vp-none" title="${title}: não votou">–</span>`
+    : `<span class="vp ${cls}" title="${title}">${esc(val)}${suffix}</span>`;
+  return pill(v.sp, 'vp-sp', 'Story Points') + pill(v.hours, 'vp-hr', 'Horas', 'h');
+}
+
 function statusHTML(m, revealed) {
   if (m.role === 'FullStack') {
     if (revealed) {
-      const val = (p) => `${esc(p.sp ?? '–')} SP/${esc(p.hours ?? '–')}h`;
-      return `<span class="vchip shown">F ${val(m.fe)} · B ${val(m.be)}</span>`;
+      return `<span class="vals-fs"><span class="part">Front</span>${valuePills(m.fe)}<span class="part">Back</span>${valuePills(m.be)}</span>`;
     }
     const any = (p) => p.votedSp || p.votedHours;
     if (!any(m.fe) && !any(m.be)) return '<span class="status st-wait">Aguardando</span>';
     const mark = (p) => (partDone(p) ? '✓' : any(p) ? '…' : '–');
     return `<span class="status ${memberDone(m) ? 'st-ok' : 'st-part'}">Front ${mark(m.fe)} · Back ${mark(m.be)}</span>`;
   }
-  if (revealed) {
-    return `<span class="votes"><span class="vchip shown">${esc(m.sp ?? '–')}<small>SP</small></span><span class="vchip shown">${esc(m.hours ?? '–')}<small>Horas</small></span></span>`;
-  }
+  if (revealed) return `<span class="vals">${valuePills(m)}</span>`;
   if (partDone(m)) return '<span class="status st-ok">Votou ✓</span>';
   if (m.votedSp || m.votedHours) return `<span class="status st-part">Falta ${m.votedSp ? 'Horas' : 'SP'}</span>`;
   return '<span class="status st-wait">Aguardando</span>';
@@ -430,7 +489,7 @@ function boardHTML(st, selfId, wide) {
     <span class="pill"><b>${present.length}</b> na sala</span>
     <span class="pill"><b>${votedAll}/${voters.length}</b> votaram SP e Horas</span>
     ${st.revealed ? '<span class="pill"><b>Votos revelados</b></span>' : ''}
-  </div>`;
+  </div>${st.revealed ? `<div class="legend"><span><i class="sw vp-sp"></i>Story Points</span><span><i class="sw vp-hr"></i>Horas</span></div>` : ''}`;
   const groups = GROUP_ORDER.map((role) => {
     const list = st.members.filter((m) => m.role === role)
       .sort((a, b) => (b.online - a.online) || a.name.localeCompare(b.name));
@@ -443,7 +502,7 @@ function boardHTML(st, selfId, wide) {
         <span class="nm">${esc(m.name)}${m.id === selfId ? ' (você)' : ''}${m.online ? '' : ' <small class="muted">(saiu)</small>'}</span>
         ${isObs ? '' : statusHTML(m, st.revealed)}</div>`;
     }).join('');
-    return `<div class="group"><div class="group-head"><span class="badge r-${role}">${GROUP_LABEL[role]}</span>
+    return `<div class="group${st.revealed ? ' revealed' : ''}"><div class="group-head"><span class="badge r-${role}">${GROUP_LABEL[role]}</span>
       <span class="cnt">${isObs ? list.length + ' pessoa' + (list.length === 1 ? '' : 's') : done + '/' + list.length + ' votaram'}</span></div>${rows}</div>`;
   }).join('');
   if (!st.members.length) return summary + '<p class="muted">Ninguém entrou na sala ainda.</p>';
@@ -452,7 +511,7 @@ function boardHTML(st, selfId, wide) {
 
 function resultsHTML(results) {
   return Object.entries(results).map(([g, r]) => `
-      <div class="res ${g}"><h3>${g}</h3>
+      <div class="res ${g}" role="button" tabindex="0" data-group="${g}" title="Ver votos de ${g}"><h3>${g} <span class="res-more">ver votos ›</span></h3>
         <div class="pair">
           <div><div class="num">${fmt(r.sp)}</div><div class="lbl">Story Points</div></div>
           <div><div class="num">${fmt(r.hours)}</div><div class="lbl">Horas</div></div>
@@ -460,6 +519,70 @@ function resultsHTML(results) {
         <div class="lbl" style="margin-top:6px">${r.voters} votante${r.voters === 1 ? '' : 's'}</div>
       </div>`).join('');
 }
+
+// ---------- Resumo por área (modal) ----------
+// Mesma regra das médias no servidor: FullStack entra com a parte Front em FrontEnd e a parte Back em BackEnd
+function voteForGroup(m, group) {
+  if (m.role === group) return m;
+  if (m.role === 'FullStack' && group === 'FrontEnd') return m.fe;
+  if (m.role === 'FullStack' && group === 'BackEnd') return m.be;
+  return null;
+}
+
+function openResultModal(group) {
+  if (!state?.revealed) return;
+  const r = state.results[group];
+  const voted = [], missing = [];
+  for (const m of state.members) {
+    const v = voteForGroup(m, group);
+    if (!v) continue;
+    if (v.sp === null && v.hours === null) missing.push(esc(m.name));
+    else voted.push({ m, sp: v.sp, hours: v.hours });
+  }
+  // Agrupa por Story Points, do maior para o menor; sem SP ou valor não numérico vão num grupo no final
+  const byValue = new Map();
+  for (const x of voted) {
+    const key = x.sp !== null && Number.isFinite(Number(String(x.sp).replace(',', '.'))) ? x.sp : null;
+    if (!byValue.has(key)) byValue.set(key, []);
+    byValue.get(key).push(x);
+  }
+  const num = (s) => Number(String(s).replace(',', '.'));
+  const keys = [...byValue.keys()].sort((a, b) => (a === null) - (b === null) || num(b) - num(a));
+  const total = voted.length;
+  const groupsHTML = keys.map((k) => {
+    const list = byValue.get(k).sort((a, b) => a.m.name.localeCompare(b.m.name));
+    const hrs = list.map((x) => num(x.hours)).filter(Number.isFinite);
+    const lo = Math.min(...hrs), hi = Math.max(...hrs);
+    const range = !hrs.length ? '' : ` · Horas ${lo === hi ? fmt(lo) : `de ${fmt(lo)} a ${fmt(hi)}`}`;
+    const title = k === null ? 'Sem Story Points' : `${esc(k)} Story Points`;
+    return `<div class="g-group">
+      <div class="g-head"><span class="g-val">${title}</span><span class="g-meta">${list.length} de ${total}${range}</span></div>
+      <div class="g-bar" style="--w:${(list.length / total) * 100}%"></div>
+      <div class="g-chips">${list.map((x) => `<span class="chip">${esc(x.m.name)}${x.m.role === 'FullStack' ? '<span class="fs-mark">· Full Stack</span>' : ''}<span class="h">${esc(x.hours ?? '–')} h</span></span>`).join('')}</div>
+    </div>`;
+  }).join('');
+  $('resModal').dataset.group = group;
+  $('resModalTitle').textContent = `${group}: quem votou`;
+  $('resModalBody').innerHTML = `
+    <div class="m-big"><div><b>${fmt(r.sp)}</b><span>média de Story Points</span></div><div><b>${fmt(r.hours)}</b><span>média de Horas</span></div>
+      <div><b>${r.voters}</b><span>votante${r.voters === 1 ? '' : 's'}</span></div></div>
+    <div class="m-groups">${total ? groupsHTML : '<p class="muted">Ninguém votou nesta área.</p>'}</div>
+    ${missing.length ? `<p class="muted" style="font-size:13px;margin:12px 0 0">Não votou nesta área: ${missing.join(', ')}</p>` : ''}`;
+  if (!$('resModal').open) $('resModal').showModal();
+}
+
+for (const id of ['results', 'boardResults']) {
+  $(id).onclick = (e) => { const c = e.target.closest('[data-group]'); if (c) openResultModal(c.dataset.group); };
+  $(id).onkeydown = (e) => { const c = e.target.closest('[data-group]'); if (c && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openResultModal(c.dataset.group); } };
+}
+// Modal aberto: atualiza com o estado novo; nova rodada (votos ocultos) fecha
+function syncResultModal() {
+  if (!$('resModal').open) return;
+  if (state.revealed) openResultModal($('resModal').dataset.group);
+  else $('resModal').close();
+}
+$('resModalClose').onclick = () => $('resModal').close();
+$('resModal').onclick = (e) => { if (e.target === $('resModal')) $('resModal').close(); }; // clique fora fecha
 
 function me() { return state?.members.find((m) => m.id === memberId); }
 
@@ -507,9 +630,8 @@ function render() {
   $('revealBtn').disabled = state.revealed;
   $('hiddenNote').classList.toggle('hidden', state.revealed);
   $('results').classList.toggle('hidden', !state.revealed);
-  if (state.revealed) {
-    $('results').innerHTML = resultsHTML(state.results);
-  }
+  if (state.revealed) $('results').innerHTML = resultsHTML(state.results);
+  syncResultModal();
 }
 
 const myVote = { sp: null, hours: null, fe: { sp: null, hours: null }, be: { sp: null, hours: null } };

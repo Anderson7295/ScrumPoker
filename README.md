@@ -8,6 +8,7 @@ Estimativa de **Story Points** e **Horas** por área (FrontEnd, BackEnd e QA), e
   (parte em branco não entra na média). Observador não vota.
 - "Quem está na sala": presença, cargo e status de voto de cada pessoa, atualizados ao vivo.
 - Painel só de visualização para projetar: `/painel/CODIGO`.
+- Depois de revelar, clique no card de uma área para ver quem votou em cada valor de Story Points, com as horas de cada pessoa.
 
 Sem dependências externas: só Node.js 18 ou mais novo.
 
