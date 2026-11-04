@@ -240,7 +240,7 @@ async function act(action, extra = {}) {
   });
   const data = await r.json().catch(() => ({}));
   if (!r.ok) {
-    if (/Entre na sala/.test(data.error || '')) { forget(); renderJoin(); }
+    if (/Entre na sala/.test(data.error || '')) rejoin();
     else toast(data.error || 'Erro');
     throw new Error(data.error);
   }
@@ -322,6 +322,21 @@ function subscribe(onState) {
   };
 }
 
+let rejoining = false;
+async function rejoin() {
+  forget();
+  const name = store.get('sp-name'), role = store.get('sp-role');
+  if (!name || !ROLES.includes(role) || rejoining) { if (!rejoining) renderJoin(); return; }
+  rejoining = true;
+  try {
+    const data = await act('join', { name, role });
+    memberId = data.memberId;
+    store.set('sp-member:' + roomId, memberId);
+    connect();
+  } catch { renderJoin(); }
+  finally { rejoining = false; }
+}
+
 // ---------- Sala ----------
 function connect() {
   show('room');
@@ -330,8 +345,8 @@ function connect() {
     state = data;
     myVote.sp = state.mine.sp; myVote.hours = state.mine.hours;
     if (!state.members.some((m) => m.id === memberId)) {
-      // servidor reiniciado ou membro removido: pede para entrar de novo
-      forget(); renderJoin(); return;
+      // servidor reiniciado (ou Render acordou): entra de novo sozinho com o nome e cargo salvos
+      rejoin(); return;
     }
     render();
   });

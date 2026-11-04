@@ -35,6 +35,7 @@ function getRoom(id) {
       spDeck: [...DEFAULT_SP_DECK],
       hoursDeck: [...DEFAULT_HOURS_DECK],
       members: new Map(),
+      departed: new Map(), // removidos por estarem ausentes numa nova rodada: id -> { name, role }
       clients: new Set(),
       emptySince: Date.now(),
       lastPoll: 0,
@@ -104,6 +105,18 @@ function isOnline(m) {
   return m.connections > 0 || Date.now() - (m.lastSeen || 0) < POLL_ONLINE_MS;
 }
 
+// Membro da sala; quem foi removido como ausente volta automaticamente (com voto zerado) ao reabrir a sala
+function findMember(room, memberId) {
+  if (!memberId) return null;
+  if (room.members.has(memberId)) return room.members.get(memberId);
+  const gone = room.departed.get(memberId);
+  if (!gone) return null;
+  room.departed.delete(memberId);
+  const m = { id: memberId, name: gone.name, role: gone.role, sp: null, hours: null, connections: 0 };
+  room.members.set(memberId, m);
+  return m;
+}
+
 function stateFor(room, memberId, base = publicState(room)) {
   const m = room.members.get(memberId);
   const mine = m ? { sp: m.sp, hours: m.hours } : { sp: null, hours: null };
@@ -162,14 +175,14 @@ function serveFile(res, file) {
 
 async function handleAction(room, body) {
   const { action, memberId } = body;
-  const member = memberId ? room.members.get(memberId) : null;
+  const member = findMember(room, memberId);
 
   switch (action) {
     case 'join': {
       const name = String(body.name || '').trim().slice(0, 40);
       const role = ROLES.includes(body.role) ? body.role : null;
       if (!name || !role) return { error: 'Informe nome e cargo.' };
-      let m = memberId && room.members.get(memberId);
+      let m = member;
       if (m) {
         m.name = name;
         m.role = role;
@@ -196,7 +209,14 @@ async function handleAction(room, body) {
     case 'reset':
       if (!member) return { error: 'Entre na sala primeiro.' };
       room.revealed = false;
-      for (const m of room.members.values()) { m.sp = null; m.hours = null; }
+      for (const m of [...room.members.values()]) {
+        m.sp = null; m.hours = null;
+        // Ausentes saem da lista; se reabrirem a sala no mesmo navegador, voltam sozinhos (findMember)
+        if (m !== member && !isOnline(m)) {
+          room.members.delete(m.id);
+          room.departed.set(m.id, { name: m.name, role: m.role });
+        }
+      }
       if (typeof body.story === 'string') room.story = body.story.slice(0, 200);
       return {};
     case 'story':
@@ -236,7 +256,7 @@ const server = http.createServer(async (req, res) => {
     // Stream SSE: /api/rooms/:id/events?memberId=...
     if (req.method === 'GET' && parts[0] === 'api' && parts[1] === 'rooms' && parts[3] === 'events') {
       const room = getRoom(parts[2]);
-      const member = room.members.get(url.searchParams.get('memberId'));
+      const member = findMember(room, url.searchParams.get('memberId'));
       res.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache, no-transform',
@@ -265,7 +285,7 @@ const server = http.createServer(async (req, res) => {
     // Estado atual (polling): GET /api/rooms/:id/state?memberId=...
     if (req.method === 'GET' && parts[0] === 'api' && parts[1] === 'rooms' && parts[3] === 'state') {
       const room = getRoom(parts[2]);
-      const member = room.members.get(url.searchParams.get('memberId'));
+      const member = findMember(room, url.searchParams.get('memberId'));
       if (member) {
         const wasOnline = isOnline(member);
         member.lastSeen = Date.now();
