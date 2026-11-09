@@ -13,6 +13,13 @@ Estimativa de **Story Points** e **Horas** por área (FrontEnd, BackEnd e QA), e
 - "Sair da sala" remove você da sala na hora e volta para a tela inicial.
 - "Link para lançamento de horas": cole o link da demanda no topo da sala; o botão "🔗 Lançar horas" fica ativo
   para todos e abre a página numa nova aba. Sem link, o botão aparece cinza e inativo. O ✏️ ao lado permite editar ou remover o link.
+- Timer da demanda (⏱ ao lado do campo "Demanda em votação"), sincronizado para todos e visível também no painel:
+  - Começa sozinho (30 minutos por padrão) quando o código da demanda é preenchido; trocar a demanda, inclusive numa
+    nova rodada, recomeça a contagem. Limpar o campo para o timer e volta ao tempo cheio. Revelar os votos não mexe no timer.
+  - ⏸ / ▶ pausa e retoma; qualquer participante pode usar, inclusive observadores.
+  - ✏️ altera o tempo (1 a 180 minutos; Enter salva, Esc cancela). A contagem recomeça com o novo tempo, que fica
+    valendo para as próximas demandas da sala.
+  - Em zero, para em "⏱ 00:00 · Tempo esgotado", sem som nem aviso.
 - Depois de revelar, clique no card de uma área para ver quem votou em cada valor de Story Points, com as horas de cada pessoa.
 
 Sem dependências externas: só Node.js 18 ou mais novo.

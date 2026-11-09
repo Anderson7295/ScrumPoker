@@ -13,6 +13,7 @@ const PUBLIC_DIR = path.join(__dirname, 'public');
 const ROLES = ['FrontEnd', 'BackEnd', 'FullStack', 'QA', 'Observador'];
 const DEFAULT_SP_DECK = ['1', '2', '3', '5'];
 const DEFAULT_HOURS_DECK = Array.from({ length: 40 }, (_, i) => String(i + 1));
+const DEFAULT_TIMER_SEC = 30 * 60;
 
 /** rooms: id -> { id, story, revealed, spDeck, hoursDeck, members: Map<memberId, member>, clients: Set<res> } */
 const rooms = new Map();
@@ -36,6 +37,8 @@ function getRoom(id) {
       revealed: false,
       spDeck: [...DEFAULT_SP_DECK],
       hoursDeck: [...DEFAULT_HOURS_DECK],
+      // Timer da demanda: endsAt (ms) só enquanto corre; pausado/parado guarda remainingSec
+      timer: { durationSec: DEFAULT_TIMER_SEC, remainingSec: DEFAULT_TIMER_SEC, endsAt: null, running: false },
       members: new Map(),
       departed: new Map(), // removidos por estarem ausentes numa nova rodada: id -> { name, role }
       clients: new Set(),
@@ -86,6 +89,76 @@ function computeResults(room) {
   return results;
 }
 
+// ---------- Timer ----------
+// Ao chegar a zero, para e fica em 00:00 (sem precisar de ninguém conectado para isso)
+function settleTimer(t, now = Date.now()) {
+  if (t.running && t.endsAt <= now) {
+    t.running = false;
+    t.endsAt = null;
+    t.remainingSec = 0;
+  }
+  return t;
+}
+
+function startTimer(t, now = Date.now()) {
+  t.remainingSec = t.durationSec;
+  t.running = true;
+  t.endsAt = now + t.durationSec * 1000;
+}
+
+function stopTimer(t) {
+  t.remainingSec = t.durationSec;
+  t.running = false;
+  t.endsAt = null;
+}
+
+// Código da demanda: valor novo (diferente do anterior) reinicia o timer; vazio para e volta ao tempo cheio
+function setStory(room, value) {
+  const next = String(value || '').slice(0, 200);
+  const changed = next.trim() !== room.story.trim();
+  room.story = next;
+  if (!next.trim()) stopTimer(room.timer);
+  else if (changed) startTimer(room.timer);
+}
+
+function timerState(room, now = Date.now()) {
+  const t = settleTimer(room.timer, now);
+  const remainingSec = t.running ? Math.max(0, Math.ceil((t.endsAt - now) / 1000)) : t.remainingSec;
+  return { durationSec: t.durationSec, remainingSec, endsAt: t.endsAt, running: t.running };
+}
+
+function timerAction(room, body) {
+  const now = Date.now();
+  const t = settleTimer(room.timer, now);
+  switch (body.op) {
+    case 'pause':
+      if (t.running) {
+        t.remainingSec = Math.max(0, Math.ceil((t.endsAt - now) / 1000));
+        t.running = false;
+        t.endsAt = null;
+      }
+      return {};
+    case 'resume':
+      if (!room.story.trim()) return { error: 'Informe a demanda para iniciar o timer.' };
+      if (!t.running) {
+        if (t.remainingSec <= 0) return { error: 'O tempo já esgotou. Altere o tempo para recomeçar.' };
+        t.running = true;
+        t.endsAt = now + t.remainingSec * 1000;
+      }
+      return {};
+    case 'duration': {
+      const min = Number(body.minutes);
+      if (!Number.isInteger(min) || min < 1 || min > 180) return { error: 'Informe um tempo entre 1 e 180 minutos.' };
+      t.durationSec = min * 60;
+      if (room.story.trim()) startTimer(t, now);
+      else stopTimer(t);
+      return {};
+    }
+    default:
+      return { error: 'Operação de timer inválida.' };
+  }
+}
+
 function publicState(room) {
   const part = (v) => ({
     votedSp: v.sp !== null,
@@ -112,6 +185,8 @@ function publicState(room) {
     hoursDeck: room.hoursDeck,
     members,
     results: room.revealed ? computeResults(room) : null,
+    timer: timerState(room),
+    serverNow: Date.now(), // para o navegador corrigir a diferença de relógio
   };
 }
 
@@ -242,7 +317,7 @@ async function handleAction(room, body) {
           room.departed.set(m.id, { name: m.name, role: m.role });
         }
       }
-      if (typeof body.story === 'string') room.story = body.story.slice(0, 200);
+      if (typeof body.story === 'string') setStory(room, body.story);
       return {};
     case 'hoursLink': {
       if (!member) return { error: 'Entre na sala primeiro.' };
@@ -261,8 +336,11 @@ async function handleAction(room, body) {
       return {};
     case 'story':
       if (!member) return { error: 'Entre na sala primeiro.' };
-      room.story = String(body.story || '').slice(0, 200);
+      setStory(room, body.story);
       return {};
+    case 'timer':
+      if (!member) return { error: 'Entre na sala primeiro.' };
+      return timerAction(room, body);
     case 'deck': {
       if (!member) return { error: 'Entre na sala primeiro.' };
       const deck = sanitizeDeck(body.deck);
