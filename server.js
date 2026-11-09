@@ -112,13 +112,12 @@ function stopTimer(t) {
   t.endsAt = null;
 }
 
-// Código da demanda: valor novo (diferente do anterior) reinicia o timer; vazio para e volta ao tempo cheio
+// Código da demanda: valor novo (diferente do anterior) reinicia o timer; limpar o campo não mexe nele
 function setStory(room, value) {
   const next = String(value || '').slice(0, 200);
   const changed = next.trim() !== room.story.trim();
   room.story = next;
-  if (!next.trim()) stopTimer(room.timer);
-  else if (changed) startTimer(room.timer);
+  if (next.trim() && changed) startTimer(room.timer);
 }
 
 function timerState(room, now = Date.now()) {
@@ -138,10 +137,11 @@ function timerAction(room, body) {
         t.endsAt = null;
       }
       return {};
+    // Iniciar/retomar (com ou sem demanda): continua de onde pausou; esgotado, recomeça do tempo cheio
+    case 'start':
     case 'resume':
-      if (!room.story.trim()) return { error: 'Informe a demanda para iniciar o timer.' };
       if (!t.running) {
-        if (t.remainingSec <= 0) return { error: 'O tempo já esgotou. Altere o tempo para recomeçar.' };
+        if (t.remainingSec <= 0) t.remainingSec = t.durationSec;
         t.running = true;
         t.endsAt = now + t.remainingSec * 1000;
       }
@@ -150,8 +150,8 @@ function timerAction(room, body) {
       const min = Number(body.minutes);
       if (!Number.isInteger(min) || min < 1 || min > 180) return { error: 'Informe um tempo entre 1 e 180 minutos.' };
       t.durationSec = min * 60;
-      if (room.story.trim()) startTimer(t, now);
-      else stopTimer(t);
+      if (t.running) startTimer(t, now); // correndo: recomeça com o novo tempo
+      else stopTimer(t); // parado/pausado/esgotado: só guarda o novo tempo
       return {};
     }
     default:

@@ -260,7 +260,7 @@
             <label for="story">Demanda em votação</label>
             <span class="timer idle" id="timer">
               <span class="t-txt" id="timerTxt" aria-live="off">⏱ 30:00</span>
-              <button id="timerToggle" title="Retomar timer" aria-label="Retomar timer" disabled>▶</button>
+              <button id="timerToggle" title="Iniciar timer" aria-label="Iniciar timer">▶</button>
               <button id="timerEdit" title="Alterar tempo do timer" aria-label="Alterar tempo do timer">✏️</button>
               <span id="timerEditBox" class="hidden"><input id="timerInput" type="number" min="1" max="180" step="1" inputmode="numeric" aria-label="Tempo do timer em minutos"><span class="t-unit">min</span></span>
             </span>
@@ -879,21 +879,22 @@ function renderTimer() {
   const t = state?.timer;
   if (!t) return;
   const left = timerRemaining(t);
-  const hasStory = !!String(state.story || '').trim();
   const over = left <= 0;
   const running = t.running && !over;
+  const paused = !running && !over && left < t.durationSec;
   const text = '⏱ ' + fmtClock(left) + (over ? ' · Tempo esgotado' : '');
   for (const box of [$('timer'), $('boardTimer')]) {
     box.classList.toggle('over', over);
-    box.classList.toggle('idle', !hasStory && !over);
+    box.classList.toggle('idle', !running && !paused && !over); // parado no tempo cheio: mais apagado
     const txt = box.querySelector('.t-txt');
     if (txt.textContent !== text) txt.textContent = text;
   }
+  // ▶ sempre disponível: "Iniciar" parado/esgotado, "Retomar" pausado
   const b = $('timerToggle');
-  const label = running ? 'Pausar timer' : 'Retomar timer';
+  const label = running ? 'Pausar timer' : paused ? 'Retomar timer' : 'Iniciar timer';
   b.textContent = running ? '⏸' : '▶';
   b.title = label; b.setAttribute('aria-label', label);
-  b.disabled = !running && (!hasStory || over);
+  b.disabled = false;
   $('timerEdit').classList.toggle('hidden', editingTimer);
   $('timerEditBox').classList.toggle('hidden', !editingTimer);
 }
@@ -904,7 +905,7 @@ $('timerToggle').onclick = () => {
   const t = state?.timer;
   if (!t) return;
   const running = t.running && timerRemaining(t) > 0;
-  act('timer', { op: running ? 'pause' : 'resume' }).catch(() => {});
+  act('timer', { op: running ? 'pause' : 'start' }).catch(() => {});
 };
 $('timerEdit').onclick = () => {
   editingTimer = true;
