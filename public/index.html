@@ -184,7 +184,11 @@
   #roundModal { width: min(460px, calc(100vw - 32px)); }
   .round-opts { display: grid; gap: 10px; }
   .round-opt { display: grid; gap: 3px; text-align: left; padding: 12px 14px; }
-  .round-opt span { font-size: 13px; font-weight: 400; opacity: .85; }
+  .round-hint { font-size: 12px; font-weight: 400; opacity: .85; }
+  .round-cancel { display: grid; justify-items: end; gap: 4px; margin-top: 14px; }
+  .round-cancel .round-hint { color: var(--muted); }
+  /* Com mouse a explicação vem no hover (title); sem hover (toque), fica visível */
+  @media (hover: hover) { .round-hint { display: none; } }
   /* Timer da demanda: discreto, ao lado do campo da demanda */
   .story-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 6px; }
   .story-head label { margin: 0; }
@@ -388,17 +392,19 @@
     <button class="link" id="roundModalClose" aria-label="Fechar">✕</button>
   </div>
   <div class="round-opts">
-    <button class="round-opt primary" id="roundClean">
+    <!-- Explicação no hover (title); em telas de toque, sem hover, aparece como linha discreta -->
+    <button class="round-opt primary" id="roundClean" title="Limpa os votos e a demanda em votação. O timer volta ao tempo cheio e fica parado até preencherem uma nova demanda ou clicarem em ▶.">
       <b>Nova votação limpa</b>
-      <span>Zera os votos, limpa a demanda para todos e deixa o timer parado no tempo cheio.</span>
+      <span class="round-hint">Limpa os votos e a demanda em votação. O timer volta ao tempo cheio e fica parado até preencherem uma nova demanda ou clicarem em ▶.</span>
     </button>
-    <button class="round-opt" id="roundSame">
+    <button class="round-opt" id="roundSame" title="Limpa só os votos. A demanda continua a mesma e o timer segue de onde está, sem reiniciar.">
       <b>Nova votação da mesma demanda</b>
-      <span>Zera só os votos. Mantém a demanda e o timer como estão.</span>
+      <span class="round-hint">Limpa só os votos. A demanda continua a mesma e o timer segue de onde está, sem reiniciar.</span>
     </button>
   </div>
-  <div class="actions" style="justify-content:flex-end;margin-top:14px">
-    <button id="roundCancel">Cancelar</button>
+  <div class="round-cancel">
+    <button id="roundCancel" title="Fecha sem alterar nada.">Cancelar</button>
+    <span class="round-hint">Fecha sem alterar nada.</span>
   </div>
 </dialog>
 
