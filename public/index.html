@@ -177,6 +177,14 @@
   .room-item .ppl { font-size: 13px; color: var(--muted); }
   .room-item .st { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .room-item .go { color: var(--primary); font-weight: 600; font-size: 14px; flex-shrink: 0; }
+  /* Quem revelou o resultado: "Resultado · revelado por **Ana**" */
+  .revealed-by { font-size: 13px; font-weight: 400; color: var(--muted); }
+  .revealed-by b { color: var(--text); font-weight: 700; }
+  /* Modal da nova rodada */
+  #roundModal { width: min(460px, calc(100vw - 32px)); }
+  .round-opts { display: grid; gap: 10px; }
+  .round-opt { display: grid; gap: 3px; text-align: left; padding: 12px 14px; }
+  .round-opt span { font-size: 13px; font-weight: 400; opacity: .85; }
   /* Timer da demanda: discreto, ao lado do campo da demanda */
   .story-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; margin-bottom: 6px; }
   .story-head label { margin: 0; }
@@ -321,7 +329,7 @@
 
         <div class="panel">
           <div class="deck-head">
-            <h2 style="margin:0">Resultado</h2>
+            <h2 style="margin:0">Resultado<span class="revealed-by" data-revealed-by></span></h2>
             <div class="actions">
               <button class="primary" id="revealBtn">Revelar</button>
               <button id="resetBtn">Nova rodada</button>
@@ -357,7 +365,7 @@
     </p>
     <div id="boardBody"></div>
     <div class="panel hidden" id="boardResultsPanel" style="margin-top:16px">
-      <h2>Resultado</h2>
+      <h2>Resultado<span class="revealed-by" data-revealed-by></span></h2>
       <div class="results" id="boardResults"></div>
     </div>
   </section>
@@ -371,6 +379,27 @@
     <button class="link" id="resModalClose" aria-label="Fechar">✕</button>
   </div>
   <div id="resModalBody"></div>
+</dialog>
+
+<!-- Nova rodada: escolher se limpa a demanda ou repete a mesma -->
+<dialog id="roundModal" aria-labelledby="roundModalTitle">
+  <div class="modal-head">
+    <h2 id="roundModalTitle" style="margin:0">Como iniciar a próxima rodada?</h2>
+    <button class="link" id="roundModalClose" aria-label="Fechar">✕</button>
+  </div>
+  <div class="round-opts">
+    <button class="round-opt primary" id="roundClean">
+      <b>Nova votação limpa</b>
+      <span>Zera os votos, limpa a demanda para todos e deixa o timer parado no tempo cheio.</span>
+    </button>
+    <button class="round-opt" id="roundSame">
+      <b>Nova votação da mesma demanda</b>
+      <span>Zera só os votos. Mantém a demanda e o timer como estão.</span>
+    </button>
+  </div>
+  <div class="actions" style="justify-content:flex-end;margin-top:14px">
+    <button id="roundCancel">Cancelar</button>
+  </div>
 </dialog>
 
 <script>
@@ -552,6 +581,7 @@ function connectBoard() {
     $('boardResultsPanel').classList.toggle('hidden', !state.revealed);
     if (state.revealed) $('boardResults').innerHTML = resultsHTML(state.results);
     syncResultModal();
+    showRevealedBy(state);
     renderTimer();
   });
 }
@@ -744,6 +774,7 @@ function render() {
   $('results').classList.toggle('hidden', !state.revealed);
   if (state.revealed) $('results').innerHTML = resultsHTML(state.results);
   syncResultModal();
+  showRevealedBy(state);
   renderTimer();
 }
 
@@ -791,7 +822,20 @@ document.querySelectorAll('#spDeckInput, #hoursDeckInput').forEach((i) => i.onke
 let storyTimer;
 $('story').oninput = () => { clearTimeout(storyTimer); storyTimer = setTimeout(() => act('story', { story: $('story').value }).catch(() => {}), 400); };
 $('revealBtn').onclick = () => act('reveal').catch(() => {});
-$('resetBtn').onclick = () => act('reset', { story: '' }).catch(() => {});
+// Nova rodada abre o modal; Esc, clique fora, ✕ ou Cancelar fecham sem mudar nada
+$('resetBtn').onclick = () => $('roundModal').showModal();
+const closeRound = () => $('roundModal').close();
+$('roundCancel').onclick = closeRound;
+$('roundModalClose').onclick = closeRound;
+$('roundModal').onclick = (e) => { if (e.target === $('roundModal')) closeRound(); };
+$('roundClean').onclick = () => { closeRound(); act('reset', { mode: 'clean' }).catch(() => {}); };
+$('roundSame').onclick = () => { closeRound(); act('reset', { mode: 'same' }).catch(() => {}); };
+
+// "Resultado · revelado por Ana" na sala e no painel
+function showRevealedBy(st) {
+  const html = st.revealed && st.revealedBy ? ` · revelado por <b>${esc(st.revealedBy)}</b>` : '';
+  document.querySelectorAll('[data-revealed-by]').forEach((e) => { if (e.innerHTML !== html) e.innerHTML = html; });
+}
 $('copyLink').onclick = async () => {
   const link = location.origin + '/sala/' + roomId;
   try { await navigator.clipboard.writeText(link); toast('Link copiado: ' + link); }

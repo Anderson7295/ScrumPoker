@@ -35,6 +35,7 @@ function getRoom(id) {
       hoursLink: '', // link da demanda para lançamento de horas (opcional)
       story: '',
       revealed: false,
+      revealedBy: '', // nome de quem clicou em Revelar (fica mesmo se a pessoa sair)
       spDeck: [...DEFAULT_SP_DECK],
       hoursDeck: [...DEFAULT_HOURS_DECK],
       // Timer da demanda: endsAt (ms) só enquanto corre; pausado/parado guarda remainingSec
@@ -181,6 +182,7 @@ function publicState(room) {
     hoursLink: room.hoursLink,
     story: room.story,
     revealed: room.revealed,
+    revealedBy: room.revealed ? room.revealedBy : '',
     spDeck: room.spDeck,
     hoursDeck: room.hoursDeck,
     members,
@@ -304,11 +306,17 @@ async function handleAction(room, body) {
     }
     case 'reveal':
       if (!member) return { error: 'Entre na sala primeiro.' };
+      if (!room.revealed) room.revealedBy = member.name;
       room.revealed = true;
       return {};
-    case 'reset':
+    // Nova rodada: 'clean' zera votos, limpa a demanda e deixa o timer parado no tempo cheio;
+    // 'same' zera só os votos (mantém demanda e timer como estão)
+    case 'reset': {
       if (!member) return { error: 'Entre na sala primeiro.' };
+      const mode = body.mode === undefined ? 'clean' : body.mode;
+      if (mode !== 'clean' && mode !== 'same') return { error: 'Tipo de nova rodada inválido.' };
       room.revealed = false;
+      room.revealedBy = '';
       for (const m of [...room.members.values()]) {
         m.votes = emptyVotes();
         // Ausentes saem da lista; se reabrirem a sala no mesmo navegador, voltam sozinhos (findMember)
@@ -317,8 +325,12 @@ async function handleAction(room, body) {
           room.departed.set(m.id, { name: m.name, role: m.role });
         }
       }
-      if (typeof body.story === 'string') setStory(room, body.story);
+      if (mode === 'clean') {
+        room.story = '';
+        stopTimer(room.timer);
+      }
       return {};
+    }
     case 'hoursLink': {
       if (!member) return { error: 'Entre na sala primeiro.' };
       const link = String(body.link || '').trim().slice(0, 500);

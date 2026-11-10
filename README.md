@@ -20,6 +20,13 @@ Estimativa de **Story Points** e **Horas** por área (FrontEnd, BackEnd e QA), e
   - ✏️ altera o tempo (1 a 180 minutos; Enter salva, Esc cancela). Se o timer estiver correndo, recomeça com o novo
     tempo; parado ou pausado, só guarda o valor. O tempo escolhido fica valendo para as próximas demandas da sala.
   - Em zero, para em "⏱ 00:00 · Tempo esgotado", sem som nem aviso; ▶ recomeça do tempo cheio.
+- "Nova rodada" pergunta como continuar:
+  - **Nova votação limpa**: zera os votos, limpa a demanda para todos e deixa o timer parado no tempo cheio. Ele volta a
+    correr quando alguém preencher um código novo ou clicar em ▶.
+  - **Nova votação da mesma demanda**: zera só os votos; a demanda e o timer continuam como estão (correndo ou pausado).
+  - Cancelar, Esc ou clicar fora fecham sem mudar nada.
+- Depois de revelar, o título mostra quem revelou ("Resultado · revelado por Ana"), na sala e no painel. O nome
+  continua aparecendo mesmo se a pessoa sair, e some na nova rodada.
 - Depois de revelar, clique no card de uma área para ver quem votou em cada valor de Story Points, com as horas de cada pessoa.
 
 Sem dependências externas: só Node.js 18 ou mais novo.
